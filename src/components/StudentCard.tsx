@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Briefcase, Award, TrendingUp } from 'lucide-react';
-import { Student, getStudentPhotoUrl } from '../types';
+import { Student, getStudentPhotoUrl, handleStudentImageError } from '../types';
 
 interface StudentCardProps {
   student: Student;
@@ -34,10 +34,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
             src={getStudentPhotoUrl(student.photoFilename)}
             alt={student.fullName}
             className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-            onError={(e: any) => {
-              e.target.onerror = null;
-              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.fullName)}&background=4f46e5&color=ffffff&size=256&bold=true`;
-            }}
+            onError={(e) => handleStudentImageError(e, student.fullName)}
           />
 
           {rank !== undefined && rank <= 3 && (

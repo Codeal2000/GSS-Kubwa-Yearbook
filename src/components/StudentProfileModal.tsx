@@ -4,7 +4,7 @@ import {
   X, Calendar, Briefcase, Heart, Mail, Phone, Sparkles, 
   MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload
 } from 'lucide-react';
-import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl } from '../types';
+import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
 
 interface StudentProfileModalProps {
@@ -115,10 +115,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 src={getStudentPhotoUrl(student.photoFilename)}
                 alt={student.fullName}
                 className="w-full h-full object-cover"
-                onError={(e: any) => {
-                  e.target.onerror = null;
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.fullName)}&background=4f46e5&color=ffffff&size=256&bold=true`;
-                }}
+                onError={(e) => handleStudentImageError(e, student.fullName)}
               />
             </div>
 

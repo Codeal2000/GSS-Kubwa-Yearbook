@@ -1,3 +1,5 @@
+import React from 'react';
+
 export interface StudentVotes {
   tech_guru?: number;
   most_creative?: number;
@@ -76,4 +78,21 @@ export function getStudentPhotoUrl(photoFilename?: string): string {
     return photoFilename;
   }
   return `/photos/${photoFilename}`;
+}
+
+export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {
+  const target = e.currentTarget;
+  const currentSrc = target.src;
+
+  if (currentSrc.endsWith('.jpg')) {
+    target.src = currentSrc.replace(/\.jpg$/, '.png');
+    return;
+  }
+  if (currentSrc.endsWith('.jpeg')) {
+    target.src = currentSrc.replace(/\.jpeg$/, '.png');
+    return;
+  }
+
+  target.onerror = null;
+  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=4f46e5&color=ffffff&size=256&bold=true`;
 }

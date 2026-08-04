@@ -5,7 +5,7 @@ import {
   updateDoc, increment, setDoc, deleteDoc, addDoc 
 } from 'firebase/firestore';
 import { getInitialStudents, seedStudentsToFirestore } from './seedData';
-import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl } from './types';
+import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError } from './types';
 import { Navbar } from './components/Navbar';
 import { StudentCard } from './components/StudentCard';
 import { StudentProfileModal } from './components/StudentProfileModal';
@@ -13,9 +13,11 @@ import { AuthModal } from './components/AuthModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { Pagination } from './components/Pagination';
 import { SuperlativeIcon } from './components/SuperlativeIcon';
+import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
-  Sparkles, Trophy, Users, Star, PartyPopper, 
-  Award, HeartHandshake, Search, Filter, ShieldCheck, Check
+  GraduationCap, Trophy, Users, Star, 
+  Award, HeartHandshake, Search, Filter, ShieldCheck, Check,
+  ArrowRight, ChevronRight, BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -395,74 +397,134 @@ export default function App() {
 
       {/* Hero / Spotlight Section on First View */}
       {activeTab === 'all' && !searchTerm && (
-        <section className="bg-gradient-to-b from-indigo-50/70 via-white to-slate-50 border-b border-slate-200 py-10 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="max-w-2xl text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs mb-4">
-                <Sparkles className="w-4 h-4 text-indigo-600" /> Government Secondary School, Kubwa
-              </div>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight mb-4">
-                Celebrating the Extraordinary <span className="text-indigo-600">Class of 2026</span>
-              </h1>
-              <p className="text-slate-600 text-sm md:text-base leading-relaxed mb-6">
-                Explore the official digital yearbook archive. Discover graduate profiles, vote in 12 superlative categories, and leave personal signatures and memories.
-              </p>
+        <section className="relative overflow-hidden bg-slate-950 text-white border-b border-slate-800">
+          {/* Background Large Hero Image with Glassmorphic Gradient Overlay */}
+          <div className="absolute inset-0 z-0">
+            <img
+              src={heroBanner}
+              alt="GSS Kubwa Class of 2026 Celebration"
+              className="w-full h-full object-cover object-center opacity-30 scale-105 transform transition duration-1000"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/40" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+          </div>
 
-              {/* Action Badges */}
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
-                <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 font-bold">
-                    <Users className="w-5 h-5" />
+          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              
+              {/* Left Column: Welcoming Information Card */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-indigo-200 font-bold text-xs shadow-md">
+                  <GraduationCap className="w-4 h-4 text-amber-400" />
+                  <span>Government Secondary School, Kubwa</span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
+                  Welcome to the Official <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-sky-200 to-amber-200">
+                    Class of 2026 Yearbook
+                  </span>
+                </h1>
+
+                <p className="text-slate-300 text-xs sm:text-sm md:text-base leading-relaxed max-w-xl">
+                  A timeless digital memory book preserving graduate profiles, senior quotes, superlative votes, and personal tributes for our {students.length} graduating seniors.
+                </p>
+
+                {/* Glassmorphic Stats Bar */}
+                <div className="grid grid-cols-3 gap-3 pt-1">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 rounded-2xl hover:bg-white/20 hover:border-white/30 transition duration-300 shadow-md">
+                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-300 mb-2">
+                      <Users className="w-4 h-4" />
+                    </div>
+                    <p className="text-base sm:text-lg font-black text-white">{students.length}</p>
+                    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wide">Graduates</p>
                   </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-900">{students.length}</p>
-                    <p className="text-[10px] text-slate-500 font-semibold uppercase">Graduates</p>
+
+                  <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 rounded-2xl hover:bg-white/20 hover:border-white/30 transition duration-300 shadow-md">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-300 mb-2">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                    <p className="text-base sm:text-lg font-black text-white">12 Categories</p>
+                    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wide">Superlatives</p>
+                  </div>
+
+                  <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3 sm:p-4 rounded-2xl hover:bg-white/20 hover:border-white/30 transition duration-300 shadow-md">
+                    <div className="w-8 h-8 rounded-xl bg-rose-500/20 flex items-center justify-center text-rose-300 mb-2">
+                      <HeartHandshake className="w-4 h-4" />
+                    </div>
+                    <p className="text-base sm:text-lg font-black text-white">Signatures</p>
+                    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wide">Tributes</p>
                   </div>
                 </div>
 
-                <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 font-bold">
-                    <Trophy className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-900">12 Categories</p>
-                    <p className="text-[10px] text-slate-500 font-semibold uppercase">Superlatives</p>
-                  </div>
-                </div>
-
-                <div className="bg-white px-4 py-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-3">
-                  <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 font-bold">
-                    <HeartHandshake className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-slate-900">Signatures</p>
-                    <p className="text-[10px] text-slate-500 font-semibold uppercase">Yearbook Tributes</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Featured Images Spotlight Preview */}
-            <div className="w-full md:w-auto grid grid-cols-3 gap-3 bg-white p-4 rounded-3xl border border-slate-200 shadow-lg">
-              {students.slice(0, 6).map((student, i) => (
-                <div
-                  key={student.id}
-                  onClick={() => setSelectedStudent(student)}
-                  className="w-24 h-28 sm:w-28 sm:h-32 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer relative group shadow-xs"
-                >
-                  <img
-                    src={getStudentPhotoUrl(student.photoFilename)}
-                    alt={student.fullName}
-                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                    onError={(e: any) => {
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(student.fullName)}&background=4f46e5&color=ffffff`;
+                {/* Navigation CTA Buttons */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      const element = document.getElementById('graduates-grid');
+                      element?.scrollIntoView({ behavior: 'smooth' });
                     }}
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent p-2 text-white">
-                    <p className="text-[10px] font-bold line-clamp-1">{student.fullName.split(' ')[0]}</p>
+                    className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl transition duration-200 shadow-lg shadow-indigo-600/30 flex items-center gap-2 group"
+                  >
+                    Browse Graduates
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition duration-200" />
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('halloffame')}
+                    className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 font-bold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2"
+                  >
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    Vote Superlatives
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Featured Spotlight Glassmorphic Showcase */}
+              <div className="lg:col-span-5">
+                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 sm:p-5 rounded-3xl shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                      <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-wide">
+                        Graduate Spotlight
+                      </h3>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab('featured')}
+                      className="text-[11px] font-bold text-indigo-300 hover:text-white transition flex items-center gap-1"
+                    >
+                      View All <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {students.slice(0, 6).map((student) => (
+                      <div
+                        key={student.id}
+                        onClick={() => setSelectedStudent(student)}
+                        className="group relative rounded-2xl overflow-hidden bg-slate-800/80 border border-white/15 aspect-[4/5] cursor-pointer shadow-md hover:-translate-y-1 hover:border-amber-400/60 transition duration-300"
+                      >
+                        <img
+                          src={getStudentPhotoUrl(student.photoFilename)}
+                          alt={student.fullName}
+                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+                          onError={(e) => handleStudentImageError(e, student.fullName)}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent p-2 flex flex-col justify-end">
+                          <p className="text-[10px] font-bold text-white line-clamp-1 group-hover:text-amber-300 transition">
+                            {student.fullName.split(' ')[0]}
+                          </p>
+                          <p className="text-[8px] text-slate-300 line-clamp-1 font-semibold">
+                            {student.careerPath || 'Class of 2026'}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              </div>
+
             </div>
           </div>
         </section>
@@ -508,7 +570,7 @@ export default function App() {
       )}
 
       {/* Main Grid View */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+      <main id="graduates-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
         {/* Status Bar */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-xs font-bold text-slate-500">
