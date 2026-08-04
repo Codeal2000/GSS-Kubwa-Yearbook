@@ -69,3 +69,11 @@ export interface UserSession {
   examNumber?: string;
   email?: string;
 }
+
+export function getStudentPhotoUrl(photoFilename?: string): string {
+  if (!photoFilename) return '/photos/1.jpg';
+  if (photoFilename.startsWith('data:') || photoFilename.startsWith('http://') || photoFilename.startsWith('https://')) {
+    return photoFilename;
+  }
+  return `/photos/${photoFilename}`;
+}

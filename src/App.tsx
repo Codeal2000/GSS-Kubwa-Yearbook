@@ -5,7 +5,7 @@ import {
   updateDoc, increment, setDoc, deleteDoc, addDoc 
 } from 'firebase/firestore';
 import { getInitialStudents, seedStudentsToFirestore } from './seedData';
-import { Student, CommentItem, UserSession, SUPERLATIVES } from './types';
+import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl } from './types';
 import { Navbar } from './components/Navbar';
 import { StudentCard } from './components/StudentCard';
 import { StudentProfileModal } from './components/StudentProfileModal';
@@ -451,7 +451,7 @@ export default function App() {
                   className="w-24 h-28 sm:w-28 sm:h-32 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 cursor-pointer relative group shadow-xs"
                 >
                   <img
-                    src={`/photos/${student.photoFilename}`}
+                    src={getStudentPhotoUrl(student.photoFilename)}
                     alt={student.fullName}
                     className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     onError={(e: any) => {

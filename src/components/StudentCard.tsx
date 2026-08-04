@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Briefcase, Award, TrendingUp } from 'lucide-react';
-import { Student } from '../types';
+import { Student, getStudentPhotoUrl } from '../types';
 
 interface StudentCardProps {
   student: Student;
@@ -31,7 +31,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         {/* Photo Container */}
         <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3.5 bg-slate-100 ring-1 ring-slate-200 group-hover:ring-indigo-300 transition">
           <img
-            src={`/photos/${student.photoFilename}`}
+            src={getStudentPhotoUrl(student.photoFilename)}
             alt={student.fullName}
             className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             onError={(e: any) => {
