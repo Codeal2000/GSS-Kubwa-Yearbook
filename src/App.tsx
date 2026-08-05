@@ -750,9 +750,33 @@ export default function App() {
 
         </div>
 
-        <div className="max-w-7xl mx-auto pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px]">
+        <div className="max-w-7xl mx-auto pt-6 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
           <p>© 2026 Government Secondary School Kubwa. All Rights Reserved.</p>
-          <p className="text-slate-500">Class of 2026 Official Digital Archive</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-400">
+            <p>
+              Built by{' '}
+              <a
+                href="https://github.com/Codeal2000"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 font-bold hover:underline transition"
+              >
+                Ige Dominion
+              </a>
+            </p>
+            <span className="hidden sm:inline text-slate-700">•</span>
+            <p>
+              Admin Contact:{' '}
+              <a
+                href="https://wa.me/2349126055946"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-400 hover:text-emerald-300 font-semibold hover:underline transition"
+              >
+                +2349126055946 (WhatsApp)
+              </a>
+            </p>
+          </div>
         </div>
       </footer>
 
