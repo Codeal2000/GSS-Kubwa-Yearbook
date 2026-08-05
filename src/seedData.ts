@@ -768,7 +768,7 @@ export const getInitialStudents = (): Student[] => {
         id: examNumber,
         fullName,
         examNumber,
-        photoFilename: photoFilename || `${i}.jpg`,
+        photoFilename: (photoFilename || `${i}.png`).replace(/\.jpe?g$/i, '.png'),
         birthDate: birthDate || '1 January',
         votes: {
           tech_guru: 0,
@@ -808,7 +808,7 @@ export const seedStudentsToFirestore = async () => {
       const student = {
         fullName: values[0]?.trim() || '',
         examNumber,
-        photoFilename: values[2]?.trim() || `${i}.jpg`,
+        photoFilename: (values[2]?.trim() || `${i}.png`).replace(/\.jpe?g$/i, '.png'),
         birthDate: values[3]?.trim() || '',
         votes: {
           tech_guru: 0,

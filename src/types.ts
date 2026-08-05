@@ -73,23 +73,20 @@ export interface UserSession {
 }
 
 export function getStudentPhotoUrl(photoFilename?: string): string {
-  if (!photoFilename) return '/photos/1.jpg';
+  if (!photoFilename) return '/photos/1.png';
   if (photoFilename.startsWith('data:') || photoFilename.startsWith('http://') || photoFilename.startsWith('https://')) {
     return photoFilename;
   }
-  return `/photos/${photoFilename}`;
+  const cleanFilename = photoFilename.replace(/\.jpe?g$/i, '.png');
+  return `/photos/${cleanFilename}`;
 }
 
 export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {
   const target = e.currentTarget;
   const currentSrc = target.src;
 
-  if (currentSrc.endsWith('.jpg')) {
-    target.src = currentSrc.replace(/\.jpg$/, '.png');
-    return;
-  }
-  if (currentSrc.endsWith('.jpeg')) {
-    target.src = currentSrc.replace(/\.jpeg$/, '.png');
+  if (currentSrc.endsWith('.png')) {
+    target.src = currentSrc.replace(/\.png$/, '.jpg');
     return;
   }
 
