@@ -1,8 +1,19 @@
 import React from 'react';
-import { 
-  Laptop, Palette, BookOpen, Sparkles, Smile, Briefcase, 
-  Shirt, Laugh, Trophy, Feather, Globe, HeartHandshake, Award
-} from 'lucide-react';
+
+const CATEGORY_STUDENT_IMAGES: Record<string, string> = {
+  Laptop: "/photos/1.webp",
+  Palette: "/photos/2.webp",
+  BookOpen: "/photos/3.webp",
+  Crown: "/photos/4.webp",
+  Smile: "/photos/5.webp",
+  Briefcase: "/photos/6.webp",
+  Shirt: "/photos/7.webp",
+  Laugh: "/photos/8.webp",
+  Trophy: "/photos/9.webp",
+  Feather: "/photos/10.webp",
+  Globe: "/photos/11.webp",
+  HeartHandshake: "/photos/12.webp",
+};
 
 interface SuperlativeIconProps {
   name: string;
@@ -10,19 +21,21 @@ interface SuperlativeIconProps {
 }
 
 export const SuperlativeIcon: React.FC<SuperlativeIconProps> = ({ name, className = "w-5 h-5" }) => {
-  switch (name) {
-    case 'Laptop': return <Laptop className={className} />;
-    case 'Palette': return <Palette className={className} />;
-    case 'BookOpen': return <BookOpen className={className} />;
-    case 'Sparkles': return <Sparkles className={className} />;
-    case 'Smile': return <Smile className={className} />;
-    case 'Briefcase': return <Briefcase className={className} />;
-    case 'Shirt': return <Shirt className={className} />;
-    case 'Laugh': return <Laugh className={className} />;
-    case 'Trophy': return <Trophy className={className} />;
-    case 'Feather': return <Feather className={className} />;
-    case 'Globe': return <Globe className={className} />;
-    case 'HeartHandshake': return <HeartHandshake className={className} />;
-    default: return <Award className={className} />;
-  }
+  const imageUrl = CATEGORY_STUDENT_IMAGES[name] || "/photos/1.webp";
+  return (
+    <img
+      src={imageUrl}
+      alt={name}
+      className={`${className} object-cover rounded-md border border-emerald-800/80 shrink-0 shadow-sm`}
+      onError={(e) => {
+        const target = e.currentTarget;
+        if (target.src.endsWith('.webp')) {
+          target.src = target.src.replace(/\.webp$/, '.jpg');
+        } else {
+          target.src = '/photos/gsskubwalogo.jpg';
+        }
+      }}
+    />
+  );
 };
+

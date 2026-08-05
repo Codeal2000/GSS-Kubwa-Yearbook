@@ -1,6 +1,6 @@
 {
-  "name": "GSS Kubwa Digital Yearbook",
-  "description": "Digital Yearbook archive for GSS Kubwa Class of 2026 featuring student directory, search, birthday view, Hall of Fame voting, and student profiles.",
+  "name": "GSS Kubwa 2026 Yearbook",
+  "description": "GSS Kubwa 2026 Yearbook",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

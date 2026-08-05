@@ -16,8 +16,8 @@ import { SuperlativeIcon } from './components/SuperlativeIcon';
 import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
   GraduationCap, Trophy, Users, Star, 
-  Award, HeartHandshake, Search, Filter, ShieldCheck, Check,
-  ArrowRight, ChevronRight, BookOpen
+  Award, Search, Filter, ShieldCheck, Check,
+  ArrowRight, ChevronRight, Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -33,7 +33,6 @@ const AnimatedCounter: React.FC<{ target: number; duration?: number }> = ({ targ
       if (!startTime) startTime = now;
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease out quad
       const easeProgress = 1 - (1 - progress) * (1 - progress);
       const current = Math.floor(easeProgress * target);
       setCount(current);
@@ -91,7 +90,7 @@ export default function App() {
     }
   });
 
-  // Local vote override store to ensure instant UI responsiveness
+  // Local vote override store
   const [localVotes, setLocalVotes] = useState<Record<string, Record<string, number>>>(() => {
     try {
       const saved = localStorage.getItem('gss_kubwa_local_votes');
@@ -101,7 +100,7 @@ export default function App() {
     }
   });
 
-  // Save session & votes to local storage
+  // Save session & votes
   useEffect(() => {
     if (userSession) {
       localStorage.setItem('gss_kubwa_user_session', JSON.stringify(userSession));
@@ -118,7 +117,7 @@ export default function App() {
     localStorage.setItem('gss_kubwa_local_votes', JSON.stringify(localVotes));
   }, [localVotes]);
 
-  // Load students from Firestore or fallback to local dataset
+  // Load students & comments from Firestore with local dataset fallback
   useEffect(() => {
     let unsubscribeStudents = () => {};
     let unsubscribeComments = () => {};
@@ -142,14 +141,13 @@ export default function App() {
               email: data.email || '',
               phone: data.phone || '',
               featuredOnHome: Boolean(data.featuredOnHome),
+              pendingProfileUpdate: data.pendingProfileUpdate || undefined
             };
           });
           setStudents(studentList);
         } else {
-          // Initialize local 714 students dataset if empty
           const initial = getInitialStudents();
           setStudents(initial);
-          // Silently seed Firestore in background for future sessions
           seedStudentsToFirestore().catch(err => console.warn("Background seed notice:", err));
         }
         setLoading(false);
@@ -172,7 +170,8 @@ export default function App() {
               authorName: data.authorName || 'Anonymous',
               authorRole: data.authorRole || 'student',
               text: data.text || '',
-              createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'Recently'
+              createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'Recently',
+              status: data.status || 'approved'
             };
           });
           setComments(commentList);
@@ -193,7 +192,7 @@ export default function App() {
     };
   }, []);
 
-  // Compute total votes for a student (combining remote + local extra votes)
+  // Compute total votes for a student
   const getStudentVoteCounts = (student: Student) => {
     const baseVotes = student.votes || {};
     const extraVotes = localVotes[student.id] || {};
@@ -228,7 +227,7 @@ export default function App() {
 
     if (activeTab === 'featured') {
       list = list.filter(s => s.featuredOnHome);
-      if (list.length === 0) list = students.slice(0, 12); // Fallback if no featured chosen
+      if (list.length === 0) list = students.slice(0, 12);
     } else if (activeTab === 'birthdays') {
       list = list.filter(s => s.birthDate.toLowerCase() === currentMonthDay.toLowerCase());
     } else if (activeTab === 'halloffame') {
@@ -250,6 +249,13 @@ export default function App() {
     return students.filter(s => s.birthDate.toLowerCase() === currentMonthDay.toLowerCase());
   }, [students, currentMonthDay]);
 
+  // Pending items for admin
+  const pendingApprovalsCount = useMemo(() => {
+    const pendingProfiles = students.filter(s => Boolean(s.pendingProfileUpdate)).length;
+    const pendingComm = comments.filter(c => c.status === 'pending').length;
+    return pendingProfiles + pendingComm;
+  }, [students, comments]);
+
   // Pagination calculations
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
   const paginatedStudents = useMemo(() => {
@@ -257,12 +263,11 @@ export default function App() {
     return filteredStudents.slice(start, start + itemsPerPage);
   }, [filteredStudents, currentPage, itemsPerPage]);
 
-  // Reset page when tab or search changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, activeTab, selectedCategory]);
 
-  // Handle Voting (1 vote per user per category per student)
+  // Handle Voting
   const handleVote = async (studentId: string, categoryId: string) => {
     if (!userSession) {
       setIsAuthOpen(true);
@@ -275,7 +280,6 @@ export default function App() {
       return;
     }
 
-    // Update local state immediately for instant feedback
     setLocalVotes(prev => {
       const studentLocal = prev[studentId] || {};
       return {
@@ -295,14 +299,12 @@ export default function App() {
       }
     }));
 
-    // Async update to Firestore
     try {
       const studentRef = doc(db, 'students', studentId);
       await updateDoc(studentRef, {
         [`votes.${categoryId}`]: increment(1)
       });
 
-      // Record vote history in Firestore
       const voteDocId = `${userSession.id}_${studentId}_${categoryId}`;
       await setDoc(doc(db, 'user_votes', voteDocId), {
         userId: userSession.id,
@@ -322,6 +324,8 @@ export default function App() {
       return;
     }
 
+    const status = userSession.role === 'admin' ? 'approved' : 'pending';
+
     const newComment: CommentItem = {
       id: `comm_${Date.now()}`,
       studentId,
@@ -329,7 +333,8 @@ export default function App() {
       authorName: userSession.fullName,
       authorRole: userSession.role,
       text,
-      createdAt: new Date().toLocaleDateString()
+      createdAt: new Date().toLocaleDateString(),
+      status
     };
 
     setComments(prev => [newComment, ...prev]);
@@ -341,10 +346,20 @@ export default function App() {
         authorName: userSession.fullName,
         authorRole: userSession.role,
         text,
+        status,
         createdAt: new Date().toISOString()
       });
     } catch (e) {
       console.warn("Firestore comment saved locally:", e);
+    }
+  };
+
+  const handleApproveComment = async (commentId: string) => {
+    setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'approved' } : c));
+    try {
+      await updateDoc(doc(db, 'comments', commentId), { status: 'approved' });
+    } catch (e) {
+      console.warn("Firestore comment approval:", e);
     }
   };
 
@@ -411,7 +426,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-indigo-500/20 flex flex-col">
+    <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-600 selection:text-white flex flex-col">
       {/* Header Navigation */}
       <Navbar
         searchTerm={searchTerm}
@@ -424,35 +439,38 @@ export default function App() {
         onOpenAdminPanel={() => setIsAdminPanelOpen(true)}
         birthdayCount={birthdayMatches.length}
         totalStudents={students.length}
+        pendingApprovalsCount={pendingApprovalsCount}
       />
 
       {/* Hero / Spotlight Section on First View */}
       {activeTab === 'all' && !searchTerm && (
-        <section className="relative overflow-hidden bg-slate-950 text-white border-b border-slate-800">
-          {/* Background Large Hero Image with Glassmorphic Gradient Overlay */}
+        <section className="relative overflow-hidden bg-slate-950 text-white border-b border-emerald-900/60">
+          {/* Hero Background Image with Dark Emerald Overlay */}
           <div className="absolute inset-0 z-0">
             <img
               src={heroBanner}
               alt="GSS Kubwa Class of 2026 Celebration"
-              className="w-full h-full object-cover object-center opacity-30 scale-105 transform transition duration-1000"
+              className="w-full h-full object-cover object-center opacity-25 scale-105 transform transition duration-1000"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-slate-950/40" />
+            <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-emerald-950/40" />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               
-              {/* Left Column: Welcoming Information Card */}
+              {/* Left Column: School Title & Welcome */}
               <div className="lg:col-span-7 space-y-6">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-indigo-200 font-bold text-xs shadow-md">
-                  <GraduationCap className="w-4 h-4 text-amber-400" />
+                <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-emerald-950/60 backdrop-blur-md border border-emerald-500/30 text-emerald-300 font-bold text-xs shadow-md">
+                  <div className="w-5 h-5 rounded-full overflow-hidden bg-white shrink-0 p-0.5">
+                    <img src="/photos/gsskubwalogo.jpg" alt="Logo" className="w-full h-full object-contain" />
+                  </div>
                   <span>Government Secondary School, Kubwa</span>
                 </div>
 
                 <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white tracking-tight leading-tight">
                   Welcome to the Official <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-sky-200 to-amber-200">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300">
                     Class of 2026 Yearbook
                   </span>
                 </h1>
@@ -461,26 +479,36 @@ export default function App() {
                   A timeless digital memory book preserving graduate profiles, senior quotes, peer award votes, and personal tributes for our graduating seniors.
                 </p>
 
-                {/* Glassmorphic Stats Bar with Animated Counters */}
+                {/* Glassmorphic Stats Bar */}
                 <div className="grid grid-cols-2 gap-3 max-w-sm pt-1">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 sm:p-4 rounded-2xl hover:bg-white/20 hover:border-white/30 transition duration-300 shadow-md">
-                    <div className="w-8 h-8 rounded-xl bg-indigo-500/20 flex items-center justify-center text-indigo-300 mb-2">
-                      <Users className="w-4 h-4" />
+                  <div className="bg-slate-900/80 backdrop-blur-md border border-emerald-900/60 p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500/50 transition duration-300 shadow-lg flex items-center gap-3">
+                    <img
+                      src="/photos/1.webp"
+                      alt="Graduates"
+                      className="w-10 h-10 rounded-xl object-cover border border-emerald-500/40 shrink-0 shadow-md"
+                      onError={(e) => handleStudentImageError(e, 'Graduates')}
+                    />
+                    <div>
+                      <p className="text-lg sm:text-xl font-black text-white leading-tight">
+                        <AnimatedCounter target={students.length || 714} />
+                      </p>
+                      <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wide">Graduates</p>
                     </div>
-                    <p className="text-lg sm:text-xl font-black text-white">
-                      <AnimatedCounter target={students.length || 714} />
-                    </p>
-                    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wide">Graduates</p>
                   </div>
 
-                  <div className="bg-white/10 backdrop-blur-md border border-white/15 p-3.5 sm:p-4 rounded-2xl hover:bg-white/20 hover:border-white/30 transition duration-300 shadow-md">
-                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-300 mb-2">
-                      <Trophy className="w-4 h-4" />
+                  <div className="bg-slate-900/80 backdrop-blur-md border border-emerald-900/60 p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500/50 transition duration-300 shadow-lg flex items-center gap-3">
+                    <img
+                      src="/photos/2.webp"
+                      alt="Peer Awards"
+                      className="w-10 h-10 rounded-xl object-cover border border-amber-500/40 shrink-0 shadow-md"
+                      onError={(e) => handleStudentImageError(e, 'Peer Awards')}
+                    />
+                    <div>
+                      <p className="text-lg sm:text-xl font-black text-white leading-tight">
+                        <AnimatedCounter target={12} />
+                      </p>
+                      <p className="text-[10px] text-amber-400 font-bold uppercase tracking-wide">Peer Awards</p>
                     </div>
-                    <p className="text-lg sm:text-xl font-black text-white">
-                      <AnimatedCounter target={12} />
-                    </p>
-                    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-wide">Peer Awards</p>
                   </div>
                 </div>
 
@@ -491,7 +519,7 @@ export default function App() {
                       const element = document.getElementById('graduates-grid');
                       element?.scrollIntoView({ behavior: 'smooth' });
                     }}
-                    className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl transition duration-200 shadow-lg shadow-indigo-600/30 flex items-center gap-2 group"
+                    className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm rounded-xl transition duration-200 shadow-lg shadow-emerald-600/30 flex items-center gap-2 group"
                   >
                     Browse Graduates
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition duration-200" />
@@ -499,7 +527,7 @@ export default function App() {
 
                   <button
                     onClick={() => setActiveTab('halloffame')}
-                    className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 font-bold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2"
+                    className="px-5 py-3 bg-slate-900/90 hover:bg-slate-800 text-white backdrop-blur-md border border-emerald-800/80 font-bold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2"
                   >
                     <Trophy className="w-4 h-4 text-amber-400" />
                     Vote Peer Awards
@@ -509,17 +537,16 @@ export default function App() {
 
               {/* Right Column: Featured Spotlight Glassmorphic Showcase */}
               <div className="lg:col-span-5">
-                <div className="bg-white/10 backdrop-blur-xl border border-white/20 p-4 sm:p-5 rounded-3xl shadow-2xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                <div className="bg-slate-900/90 backdrop-blur-xl border border-emerald-900/60 p-4 sm:p-5 rounded-3xl shadow-2xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <div className="flex items-center gap-2">
-                      <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                       <h3 className="font-extrabold text-xs sm:text-sm text-white tracking-wide">
                         Graduate Spotlight
                       </h3>
                     </div>
                     <button
                       onClick={() => setActiveTab('featured')}
-                      className="text-[11px] font-bold text-indigo-300 hover:text-white transition flex items-center gap-1"
+                      className="text-[11px] font-bold text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1"
                     >
                       View All <ChevronRight className="w-3.5 h-3.5" />
                     </button>
@@ -530,7 +557,7 @@ export default function App() {
                       <div
                         key={student.id}
                         onClick={() => setSelectedStudent(student)}
-                        className="group relative rounded-2xl overflow-hidden bg-slate-800/80 border border-white/15 aspect-[4/5] cursor-pointer shadow-md hover:-translate-y-1 hover:border-amber-400/60 transition duration-300"
+                        className="group relative rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 aspect-[4/5] cursor-pointer shadow-md hover:-translate-y-1 hover:border-emerald-500/60 transition duration-300"
                       >
                         <img
                           src={getStudentPhotoUrl(student.photoFilename)}
@@ -538,8 +565,8 @@ export default function App() {
                           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                           onError={(e) => handleStudentImageError(e, student.fullName)}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent p-2 flex flex-col justify-end">
-                          <p className="text-[10px] font-bold text-white line-clamp-1 group-hover:text-amber-300 transition">
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/30 to-transparent p-2 flex flex-col justify-end">
+                          <p className="text-[10px] font-bold text-white line-clamp-1 group-hover:text-emerald-400 transition">
                             {student.fullName.split(' ')[0]}
                           </p>
                           <p className="text-[8px] text-slate-300 line-clamp-1 font-semibold">
@@ -559,19 +586,19 @@ export default function App() {
 
       {/* Peer Awards Sub-Category Filter */}
       {activeTab === 'halloffame' && (
-        <div className="bg-slate-900/60 border-b border-slate-800/80 py-4 px-4 sm:px-6 backdrop-blur-md">
+        <div className="bg-slate-900/80 border-b border-slate-800/80 py-4 px-4 sm:px-6 backdrop-blur-md">
           <div className="max-w-7xl mx-auto">
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
-              <Filter className="w-3.5 h-3.5 text-indigo-400" /> Select Peer Award Leaderboard
+              <Filter className="w-3.5 h-3.5 text-emerald-400" /> Select Peer Award Leaderboard
             </h3>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar touch-pan-x flex-nowrap w-full scroll-smooth pb-1">
               <button
                 onClick={() => setSelectedCategory('all')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+                className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                   selectedCategory === 'all'
-                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                    : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    : 'bg-slate-950 border border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white'
                 }`}
               >
                 Overall Most Voted
@@ -581,13 +608,13 @@ export default function App() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategory(cat.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
                     selectedCategory === cat.id
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                      : 'bg-slate-950 border border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white'
                   }`}
                 >
-                  <SuperlativeIcon name={cat.iconName} className="w-3.5 h-3.5 text-amber-400" />
+                  <SuperlativeIcon name={cat.iconName} className="w-4 h-4" />
                   {cat.title}
                 </button>
               ))}
@@ -609,12 +636,12 @@ export default function App() {
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 gap-3">
-            <div className="w-10 h-10 border-4 border-slate-800 border-t-indigo-500 rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-slate-800 border-t-emerald-500 rounded-full animate-spin" />
             <p className="text-slate-400 font-semibold text-xs">Loading Yearbook Archives...</p>
           </div>
         ) : filteredStudents.length === 0 ? (
           <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-12 text-center max-w-md mx-auto my-12 shadow-xl backdrop-blur-md">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-4">
               <Search className="w-7 h-7" />
             </div>
             <h3 className="text-base font-bold text-white mb-1">No graduates found</h3>
@@ -625,7 +652,7 @@ export default function App() {
             </p>
             <button
               onClick={() => { setSearchTerm(''); setActiveTab('all'); }}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-indigo-600/30"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition shadow-md shadow-emerald-600/30"
             >
               Reset Search & Filters
             </button>
@@ -678,24 +705,24 @@ export default function App() {
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           
           <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
-                <GraduationCap className="w-4 h-4" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-slate-900 border border-emerald-500/30 rounded-lg flex items-center justify-center p-1">
+                <img src="/photos/gsskubwalogo.jpg" alt="Logo" className="w-full h-full object-contain" />
               </div>
               <span className="font-extrabold text-white text-base tracking-tight">GSS KUBWA 2026</span>
             </div>
             <p className="text-slate-400 leading-relaxed text-[11px]">
-              Government Secondary School, Kubwa Digital Yearbook Archive. Honoring memories, friendships, and future milestones.
+              Government Secondary School, Kubwa Digital Yearbook Archive. Preserving memories, friendships, and future milestones.
             </p>
           </div>
 
           <div>
             <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider mb-3">Quick Navigation</h4>
             <ul className="space-y-2 text-[11px]">
-              <li><button onClick={() => { setActiveTab('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-indigo-400 transition">All Graduates</button></li>
-              <li><button onClick={() => { setActiveTab('featured'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-indigo-400 transition">Featured Spotlight</button></li>
-              <li><button onClick={() => { setActiveTab('halloffame'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-indigo-400 transition">Peer Awards Leaderboard</button></li>
-              <li><button onClick={() => { setActiveTab('birthdays'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-indigo-400 transition">Birthdays Today</button></li>
+              <li><button onClick={() => { setActiveTab('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 transition">All Graduates</button></li>
+              <li><button onClick={() => { setActiveTab('featured'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 transition">Featured Spotlight</button></li>
+              <li><button onClick={() => { setActiveTab('halloffame'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 transition">Peer Awards Leaderboard</button></li>
+              <li><button onClick={() => { setActiveTab('birthdays'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-400 transition">Birthdays Today</button></li>
             </ul>
           </div>
 
@@ -711,11 +738,11 @@ export default function App() {
           <div>
             <h4 className="font-extrabold text-white uppercase text-[11px] tracking-wider mb-3">Student Access</h4>
             <p className="text-[11px] leading-relaxed mb-3">
-              Log in with your official index or graduate account to sign yearbooks, submit quotes, and cast peer award votes.
+              Log in with your official Exam Number and Date of Birth to sign yearbooks, submit profile updates, and cast peer award votes.
             </p>
             <button
               onClick={() => setIsAuthOpen(true)}
-              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition shadow-md shadow-indigo-600/20"
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs transition shadow-md shadow-emerald-600/20"
             >
               Sign In to Account
             </button>
@@ -763,6 +790,7 @@ export default function App() {
             onUpdateStudent={handleUpdateStudent}
             onDeleteStudent={handleDeleteStudent}
             onDeleteComment={handleDeleteComment}
+            onApproveComment={handleApproveComment}
             onToggleFeatured={handleToggleFeatured}
           />
         )}

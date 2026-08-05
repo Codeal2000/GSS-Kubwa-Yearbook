@@ -1,19 +1,26 @@
 @import "tailwindcss";
 
+@theme {
+  --color-slate-950: #01140e;
+  --color-slate-900: #031e15;
+  --color-slate-800: #072e21;
+  --color-slate-700: #0e4432;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    background-color: #020617;
+    background-color: #01140e;
     color: #f8fafc;
     font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overflow-x: hidden;
     background-image: 
-      radial-gradient(circle at top left, rgba(99, 102, 241, 0.15), transparent 45%),
-      radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.12), transparent 45%),
-      radial-gradient(circle at center, rgba(168, 85, 247, 0.08), transparent 50%);
+      radial-gradient(circle at top left, rgba(16, 185, 129, 0.22), transparent 45%),
+      radial-gradient(circle at bottom right, rgba(5, 150, 105, 0.18), transparent 45%),
+      radial-gradient(circle at center, rgba(6, 78, 59, 0.25), transparent 50%);
     background-attachment: fixed;
   }
 
@@ -22,7 +29,7 @@
   }
 
   ::selection {
-    background-color: #6366f1;
+    background-color: #059669;
     color: #ffffff;
   }
 }
@@ -33,14 +40,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #020617;
+  background: #01140e;
 }
 
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(
     to bottom,
-    #38bdf8,
-    #6366f1
+    #10b981,
+    #047857
   );
   border-radius: 999px;
 }
@@ -48,8 +55,8 @@
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(
     to bottom,
-    #06b6d4,
-    #4f46e5
+    #34d399,
+    #059669
   );
 }
 
@@ -62,15 +69,15 @@
 }
 
 .glass-dark {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(3, 30, 21, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
 }
 
 /* Gradient Text */
 .gradient-text {
-  background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+  background: linear-gradient(135deg, #34d399, #10b981, #059669);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -78,33 +85,33 @@
 /* Grid Background Pattern */
 .grid-bg {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(16, 185, 129, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.05) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* Glow Effects */
 .glow {
   box-shadow:
-    0 0 30px rgba(99, 102, 241, 0.25),
-    0 0 80px rgba(168, 85, 247, 0.15);
+    0 0 30px rgba(16, 185, 129, 0.25),
+    0 0 80px rgba(4, 120, 87, 0.15);
 }
 
 /* Card Styling */
 .dark-card {
-  background-color: rgba(15, 23, 42, 0.75);
+  background-color: rgba(3, 30, 21, 0.82);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.12);
   border-radius: 1rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: rgba(16, 185, 129, 0.4);
   box-shadow: 
     0 12px 30px -10px rgba(0, 0, 0, 0.6),
-    0 0 20px 0 rgba(99, 102, 241, 0.15);
+    0 0 20px 0 rgba(16, 185, 129, 0.15);
 }
 
 /* Floating Animation */
@@ -129,5 +136,3 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-

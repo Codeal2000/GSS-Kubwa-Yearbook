@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Briefcase, Award, TrendingUp } from 'lucide-react';
+import { Calendar, Briefcase, TrendingUp } from 'lucide-react';
 import { Student, getStudentPhotoUrl, handleStudentImageError } from '../types';
 
 interface StudentCardProps {
@@ -18,7 +18,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
   return (
     <div
       onClick={() => onSelect(student)}
-      className="group bg-slate-900/80 hover:bg-slate-900 border border-slate-800/80 hover:border-indigo-500/50 rounded-2xl p-3.5 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 flex flex-col justify-between relative overflow-hidden backdrop-blur-md"
+      className="group bg-slate-900/90 hover:bg-slate-900 border border-slate-800/80 hover:border-emerald-500/50 rounded-2xl p-3.5 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-emerald-950/40 hover:-translate-y-1 flex flex-col justify-between relative overflow-hidden backdrop-blur-md text-white"
     >
       {/* Featured Badge */}
       {student.featuredOnHome && (
@@ -29,7 +29,7 @@ export const StudentCard: React.FC<StudentCardProps> = ({
 
       <div>
         {/* Photo Container */}
-        <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3 bg-slate-950 ring-1 ring-slate-800 group-hover:ring-indigo-500/50 transition duration-300">
+        <div className="relative w-full aspect-square rounded-xl overflow-hidden mb-3 bg-slate-950 ring-1 ring-slate-800 group-hover:ring-emerald-500/50 transition duration-300">
           <img
             src={getStudentPhotoUrl(student.photoFilename)}
             alt={student.fullName}
@@ -50,14 +50,14 @@ export const StudentCard: React.FC<StudentCardProps> = ({
         </div>
 
         {/* Name */}
-        <h3 className="font-bold text-white text-sm sm:text-base leading-snug mb-1 line-clamp-1 group-hover:text-indigo-400 transition">
+        <h3 className="font-bold text-white text-sm sm:text-base leading-snug mb-1 line-clamp-1 group-hover:text-emerald-400 transition">
           {student.fullName}
         </h3>
 
         {/* Hobbies / Career path preview if present */}
         {student.careerPath ? (
-          <p className="text-xs text-indigo-400 font-semibold flex items-center gap-1 mb-2 line-clamp-1">
-            <Briefcase className="w-3 h-3 text-indigo-400" /> {student.careerPath}
+          <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mb-2 line-clamp-1">
+            <Briefcase className="w-3 h-3 text-emerald-400" /> {student.careerPath}
           </p>
         ) : (
           <p className="text-xs text-slate-400 line-clamp-1 italic mb-2">
@@ -73,8 +73,8 @@ export const StudentCard: React.FC<StudentCardProps> = ({
           <span>{student.birthDate}</span>
         </div>
 
-        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 font-bold border border-indigo-500/20 text-[11px]">
-          <TrendingUp className="w-3 h-3 text-indigo-400" />
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 font-bold border border-emerald-500/20 text-[11px]">
+          <TrendingUp className="w-3 h-3 text-emerald-400" />
           <span>{totalVotes} Votes</span>
         </div>
       </div>

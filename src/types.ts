@@ -24,6 +24,18 @@ export interface CommentItem {
   authorRole: 'student' | 'admin';
   text: string;
   createdAt: string;
+  status?: 'approved' | 'pending';
+}
+
+export interface PendingProfileUpdate {
+  quote?: string;
+  hobbies?: string;
+  careerPath?: string;
+  photoFilename?: string;
+  email?: string;
+  phone?: string;
+  submittedAt: string;
+  submittedBy: string;
 }
 
 export interface Student {
@@ -39,6 +51,7 @@ export interface Student {
   email?: string;
   phone?: string;
   featuredOnHome?: boolean;
+  pendingProfileUpdate?: PendingProfileUpdate;
   createdAt?: any;
 }
 
@@ -53,7 +66,7 @@ export const SUPERLATIVES: SuperlativeCategory[] = [
   { id: "tech_guru", title: "Tech Guru & Innovator", description: "Most likely to build the next big app or fix everyone's tech issues.", iconName: "Laptop" },
   { id: "most_creative", title: "Most Creative Mind", description: "Mastermind behind art, design, video edits, and creative projects.", iconName: "Palette" },
   { id: "class_scholar", title: "Class Scholar", description: "Consistently aces tests and helps everyone with study guides.", iconName: "BookOpen" },
-  { id: "most_famous", title: "Most Likely to Become Famous", description: "Future star whose name everyone expects in lights or headlines.", iconName: "Sparkles" },
+  { id: "most_famous", title: "Most Likely to Become Famous", description: "Future star whose name everyone expects in lights or headlines.", iconName: "Crown" },
   { id: "best_smile", title: "Best Smile & Energy", description: "Lights up any room and turns around anyone's bad day.", iconName: "Smile" },
   { id: "next_ceo", title: "Next Top CEO", description: "Natural entrepreneur always executing ideas and leading teams.", iconName: "Briefcase" },
   { id: "style_icon", title: "Best Dressed / Style Icon", description: "Always brings high-level fashion and style to school.", iconName: "Shirt" },
@@ -73,23 +86,33 @@ export interface UserSession {
 }
 
 export function getStudentPhotoUrl(photoFilename?: string): string {
-  if (!photoFilename) return '/photos/1.png';
+  if (!photoFilename) return '/photos/gsskubwalogo.jpg';
   if (photoFilename.startsWith('data:') || photoFilename.startsWith('http://') || photoFilename.startsWith('https://')) {
     return photoFilename;
   }
-  const cleanFilename = photoFilename.replace(/\.jpe?g$/i, '.png');
-  return `/photos/${cleanFilename}`;
+  let clean = photoFilename.startsWith('/') ? photoFilename.slice(1) : photoFilename;
+  if (clean.startsWith('photos/')) {
+    clean = clean.replace(/^photos\//, '');
+  }
+  const nameWithoutExt = clean.replace(/\.(jpg|jpeg|png|webp|jfif)$/i, '');
+  return `/photos/${nameWithoutExt}.webp`;
 }
 
 export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {
   const target = e.currentTarget;
   const currentSrc = target.src;
 
-  if (currentSrc.endsWith('.png')) {
-    target.src = currentSrc.replace(/\.png$/, '.jpg');
+  if (currentSrc.endsWith('.webp') && !target.dataset.fallbackTried) {
+    target.dataset.fallbackTried = 'jpg';
+    target.src = currentSrc.replace(/\.webp$/, '.jpg');
+    return;
+  }
+  if (currentSrc.endsWith('.jpg') && target.dataset.fallbackTried === 'jpg') {
+    target.dataset.fallbackTried = 'png';
+    target.src = currentSrc.replace(/\.jpg$/, '.png');
     return;
   }
 
   target.onerror = null;
-  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=4f46e5&color=ffffff&size=256&bold=true`;
+  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=065f46&color=ffffff&size=256&bold=true`;
 }

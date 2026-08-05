@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  X, Calendar, Briefcase, Heart, Mail, Phone, Sparkles, 
-  MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload
+  X, Calendar, Briefcase, Heart, Mail, Phone, Award, 
+  MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload, Clock, AlertCircle
 } from 'lucide-react';
 import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
+import { convertFileToWebp, ensureWebpFilename } from '../utils/imageUtils';
 
 interface StudentProfileModalProps {
   student: Student;
@@ -36,6 +37,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [commentText, setCommentText] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [updateFeedback, setUpdateFeedback] = useState('');
+  const [commentFeedback, setCommentFeedback] = useState('');
 
   // Edit form state
   const [editQuote, setEditQuote] = useState(student.quote || '');
@@ -48,15 +51,49 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const canEdit = userSession?.role === 'admin' || (userSession?.role === 'student' && userSession.id === student.id);
 
   const handleSaveEdit = () => {
-    onUpdateProfile({
-      quote: editQuote,
-      hobbies: editHobbies,
-      careerPath: editCareerPath,
-      email: editEmail,
-      phone: editPhone,
-      photoFilename: editPhotoFilename
-    });
+    const formattedPhoto = ensureWebpFilename(editPhotoFilename);
+    const photoChanged = formattedPhoto !== (student.photoFilename || '');
+
+    if (userSession?.role === 'admin') {
+      onUpdateProfile({
+        quote: editQuote,
+        hobbies: editHobbies,
+        careerPath: editCareerPath,
+        email: editEmail,
+        phone: editPhone,
+        photoFilename: formattedPhoto,
+        pendingProfileUpdate: undefined
+      });
+      setUpdateFeedback('Profile updated successfully.');
+    } else {
+      // Student role - senior quotes, career paths, hobbies, contact info update immediately. Only photo changes need approval.
+      if (photoChanged) {
+        onUpdateProfile({
+          quote: editQuote,
+          hobbies: editHobbies,
+          careerPath: editCareerPath,
+          email: editEmail,
+          phone: editPhone,
+          pendingProfileUpdate: {
+            photoFilename: formattedPhoto,
+            submittedAt: new Date().toLocaleDateString(),
+            submittedBy: userSession?.fullName || student.fullName
+          }
+        });
+        setUpdateFeedback('Profile info updated immediately! Your new photo has been submitted for Admin Review.');
+      } else {
+        onUpdateProfile({
+          quote: editQuote,
+          hobbies: editHobbies,
+          careerPath: editCareerPath,
+          email: editEmail,
+          phone: editPhone,
+        });
+        setUpdateFeedback('Profile updated successfully.');
+      }
+    }
     setIsEditing(false);
+    setTimeout(() => setUpdateFeedback(''), 6000);
   };
 
   const handleCommentSubmit = (e: React.FormEvent) => {
@@ -64,6 +101,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!commentText.trim()) return;
     onAddComment(commentText.trim());
     setCommentText('');
+    
+    if (userSession?.role === 'student') {
+      setCommentFeedback('Your signature/comment has been submitted for Admin Review and will be visible once approved.');
+      setTimeout(() => setCommentFeedback(''), 6000);
+    }
   };
 
   const handleShare = () => {
@@ -81,6 +123,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     }
   };
 
+  // Filter comments for public display: approved OR authored by current user OR user is admin
+  const visibleComments = comments.filter(c => {
+    if (userSession?.role === 'admin') return true;
+    if (c.status === 'approved') return true;
+    if (userSession && c.authorId === userSession.id) return true;
+    return false;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
       {/* Backdrop */}
@@ -89,7 +139,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-md"
       />
 
       {/* Modal Content */}
@@ -97,20 +147,20 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
-        className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xl z-10 my-auto flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-2xl bg-slate-900 border border-emerald-900/60 rounded-3xl overflow-hidden shadow-2xl z-10 my-auto flex flex-col max-h-[90vh] text-white"
       >
         {/* Modal Header */}
-        <div className="relative bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 sm:p-8 shrink-0">
+        <div className="relative bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 text-white p-6 sm:p-8 shrink-0 border-b border-emerald-900/50">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition"
+            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
           >
             <X className="w-5 h-5" />
           </button>
 
           <div className="flex flex-col sm:flex-row items-center gap-5">
             {/* Student Photo */}
-            <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-slate-100 ring-4 ring-white/20 shadow-xl shrink-0">
+            <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-slate-950 ring-4 ring-emerald-500/30 shadow-xl shrink-0">
               <img
                 src={getStudentPhotoUrl(student.photoFilename)}
                 alt={student.fullName}
@@ -119,9 +169,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               />
             </div>
 
-            {/* Title & Info (Registration ID is strictly hidden) */}
+            {/* Title & Info */}
             <div className="text-center sm:text-left flex-1">
-              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 text-[11px] font-bold border border-indigo-400/30 mb-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 mb-2">
                 Class of 2026 Graduate
               </div>
 
@@ -129,9 +179,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 {student.fullName}
               </h2>
 
-              <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 text-xs text-indigo-100/90 font-medium">
+              <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 text-xs text-emerald-100/90 font-medium">
                 <span className="flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-indigo-300" />
+                  <Calendar className="w-3.5 h-3.5 text-emerald-400" />
                   Birthday: {student.birthDate}
                 </span>
                 {student.careerPath && (
@@ -145,34 +195,51 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
 
           {/* Action Buttons: Share & Edit */}
-          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-slate-800">
             {canEdit && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
               >
-                <Edit2 className="w-3.5 h-3.5" /> Edit Profile
+                <Edit2 className="w-3.5 h-3.5 text-emerald-400" /> Edit Profile
               </button>
             )}
 
             <button
               onClick={handleShare}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
             >
-              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Share2 className="w-3.5 h-3.5" />}
+              {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-200" /> : <Share2 className="w-3.5 h-3.5" />}
               {copiedLink ? 'Link Copied!' : 'Share Profile'}
             </button>
           </div>
         </div>
 
+        {/* Global Feedback Banner */}
+        {updateFeedback && (
+          <div className="bg-emerald-950/80 border-b border-emerald-800 p-3 px-6 text-xs text-emerald-300 flex items-center gap-2 font-medium">
+            <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>{updateFeedback}</span>
+          </div>
+        )}
+
+        {student.pendingProfileUpdate && canEdit && (
+          <div className="bg-amber-950/60 border-b border-amber-800/80 p-3 px-6 text-xs text-amber-300 flex items-center gap-2 font-medium">
+            <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              Pending Admin Approval for your new profile photo (submitted on {student.pendingProfileUpdate.submittedAt}).
+            </span>
+          </div>
+        )}
+
         {/* Modal Navigation Tabs */}
-        <div className="flex border-b border-slate-200 bg-slate-50 px-6 shrink-0">
+        <div className="flex border-b border-slate-800 bg-slate-950/90 px-6 shrink-0">
           <button
             onClick={() => setActiveTab('profile')}
             className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-1.5 ${
               activeTab === 'profile'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
             <User className="w-4 h-4" /> Profile Details
@@ -182,22 +249,22 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             onClick={() => setActiveTab('voting')}
             className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-1.5 ${
               activeTab === 'voting'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <Sparkles className="w-4 h-4 text-amber-500" /> Cast Superlatives
+            <Award className="w-4 h-4 text-amber-400" /> Peer Awards Voting
           </button>
 
           <button
             onClick={() => setActiveTab('comments')}
             className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-1.5 ${
               activeTab === 'comments'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800'
+                ? 'border-emerald-500 text-emerald-400'
+                : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <MessageSquare className="w-4 h-4 text-indigo-500" /> Signatures & Comments ({comments.length})
+            <MessageSquare className="w-4 h-4 text-emerald-400" /> Signatures ({visibleComments.length})
           </button>
         </div>
 
@@ -205,100 +272,109 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           {/* PROFILE EDIT MODE */}
           {isEditing ? (
-            <div className="bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 space-y-4">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Edit2 className="w-4 h-4 text-indigo-600" /> Edit Student Information
+            <div className="bg-slate-950 p-5 rounded-2xl border border-emerald-900/60 space-y-4">
+              <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                <Edit2 className="w-4 h-4 text-emerald-400" /> Edit Graduate Information
               </h3>
+
+              {userSession?.role === 'student' && (
+                <p className="text-[11px] text-amber-300 bg-amber-950/50 border border-amber-800/40 p-2.5 rounded-xl flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  Note: Profile picture and info changes require Admin Approval before appearing publicly.
+                </p>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Quote</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Senior Quote</label>
                   <input
                     type="text"
                     value={editQuote}
                     onChange={(e) => setEditQuote(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                     placeholder="Enter senior quote..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Future Career Path</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Future Career Path</label>
                   <input
                     type="text"
                     value={editCareerPath}
                     onChange={(e) => setEditCareerPath(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                     placeholder="e.g., Software Engineer, Doctor..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Hobbies & Passions</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Hobbies & Passions</label>
                   <input
                     type="text"
                     value={editHobbies}
                     onChange={(e) => setEditHobbies(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    placeholder="e.g., Basketball, Chess, Graphic Design..."
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    placeholder="e.g., Basketball, Chess..."
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Graduate Photo</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Graduate Photo</label>
                   <div className="flex gap-2 items-center">
                     <input
                       type="text"
                       value={editPhotoFilename}
                       onChange={(e) => setEditPhotoFilename(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                      placeholder="e.g. 1.jpg or paste image URL"
+                      className="flex-1 px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-mono"
+                      placeholder="e.g. 1.jpg or image URL"
                     />
-                    <label className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-bold cursor-pointer transition shrink-0 flex items-center gap-1 shadow-xs">
+                    <label className="px-3 py-2 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-800 rounded-xl text-xs font-bold cursor-pointer transition shrink-0 flex items-center gap-1 shadow-sm">
                       <Upload className="w-3.5 h-3.5" />
-                      Upload Photo
+                      Browse
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (uploadEvent) => {
-                              if (uploadEvent.target?.result) {
-                                setEditPhotoFilename(uploadEvent.target.result as string);
-                              }
-                            };
-                            reader.readAsDataURL(file);
+                            try {
+                              const webpDataUrl = await convertFileToWebp(file);
+                              setEditPhotoFilename(webpDataUrl);
+                            } catch {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvent) => {
+                                if (uploadEvent.target?.result) {
+                                  setEditPhotoFilename(uploadEvent.target.result as string);
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
                           }
                         }}
                       />
                     </label>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Upload an image file from your laptop, or type filename (e.g. 1.jpg).
-                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Public Email (Optional)</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Public Email (Optional)</label>
                   <input
                     type="email"
                     value={editEmail}
                     onChange={(e) => setEditEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-mono"
                     placeholder="student@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Public Phone (Optional)</label>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">Public Phone (Optional)</label>
                   <input
                     type="tel"
                     value={editPhone}
                     onChange={(e) => setEditPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-mono"
                     placeholder="+234..."
                   />
                 </div>
@@ -307,15 +383,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   onClick={() => setIsEditing(false)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveEdit}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-emerald-600/30"
                 >
-                  Save Changes
+                  {userSession?.role === 'admin' ? 'Save Changes' : 'Submit for Admin Review'}
                 </button>
               </div>
             </div>
@@ -325,9 +401,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           {activeTab === 'profile' && !isEditing && (
             <div className="space-y-5">
               {/* Senior Quote Card */}
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-center relative">
-                <p className="text-xs uppercase font-extrabold tracking-wider text-slate-400 mb-1.5">Senior Quote</p>
-                <p className="text-slate-800 italic text-sm font-medium leading-relaxed">
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center relative">
+                <p className="text-xs uppercase font-extrabold tracking-wider text-emerald-400 mb-2">Senior Quote</p>
+                <p className="text-slate-200 italic text-sm sm:text-base font-medium leading-relaxed">
                   "{student.quote || 'Excellence is not a destination, it is a way of life.'}"
                 </p>
               </div>
@@ -335,32 +411,32 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               {/* Grid Details */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Hobbies */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs mb-1">
-                    <Heart className="w-4 h-4" /> Hobbies & Interests
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs mb-1.5">
+                    <Heart className="w-4 h-4" /> Hobbies & Passions
                   </div>
-                  <p className="text-slate-700 text-xs font-medium">
+                  <p className="text-slate-300 text-xs font-medium leading-relaxed">
                     {student.hobbies || 'Not specified yet.'}
                   </p>
                 </div>
 
                 {/* Career Path */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                  <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs mb-1">
-                    <Briefcase className="w-4 h-4" /> Future Career Goal
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs mb-1.5">
+                    <Briefcase className="w-4 h-4 text-amber-400" /> Future Career Goal
                   </div>
-                  <p className="text-slate-700 text-xs font-medium">
+                  <p className="text-slate-300 text-xs font-medium leading-relaxed">
                     {student.careerPath || 'Exploring future opportunities.'}
                   </p>
                 </div>
 
                 {/* Optional Public Email */}
                 {student.email && (
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs mb-1">
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs mb-1.5">
                       <Mail className="w-4 h-4" /> Public Email
                     </div>
-                    <a href={`mailto:${student.email}`} className="text-indigo-600 hover:underline text-xs font-medium">
+                    <a href={`mailto:${student.email}`} className="text-emerald-300 hover:underline text-xs font-mono">
                       {student.email}
                     </a>
                   </div>
@@ -368,11 +444,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 {/* Optional Public Phone */}
                 {student.phone && (
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <div className="flex items-center gap-2 text-indigo-600 font-bold text-xs mb-1">
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs mb-1.5">
                       <Phone className="w-4 h-4" /> Public Phone
                     </div>
-                    <a href={`tel:${student.phone}`} className="text-slate-700 hover:text-indigo-600 text-xs font-medium">
+                    <a href={`tel:${student.phone}`} className="text-slate-300 hover:text-emerald-300 text-xs font-mono">
                       {student.phone}
                     </a>
                   </div>
@@ -385,13 +461,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           {activeTab === 'voting' && (
             <div className="space-y-4">
               {!userSession && (
-                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-amber-900 text-xs">
-                  <span className="font-semibold">Log in to cast your votes on superlative categories!</span>
+                <div className="bg-amber-950/50 border border-amber-800/60 p-3.5 rounded-2xl flex items-center justify-between gap-3 text-amber-200 text-xs">
+                  <span className="font-semibold">Log in with your Exam Number to vote on peer awards!</span>
                   <button
                     onClick={onOpenAuth}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition shrink-0 flex items-center gap-1"
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold transition shrink-0 flex items-center gap-1 shadow-md"
                   >
-                    <LogIn className="w-3.5 h-3.5" /> Log In
+                    <LogIn className="w-3.5 h-3.5" /> Sign In
                   </button>
                 </div>
               )}
@@ -406,24 +482,24 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       key={cat.id}
                       className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
                         hasVoted
-                          ? 'bg-indigo-50 border-indigo-300'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          ? 'bg-emerald-950/60 border-emerald-500/60'
+                          : 'bg-slate-950 border-slate-800 hover:border-slate-700'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          hasVoted ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
+                          hasVoted ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-emerald-400 border border-slate-800'
                         }`}>
                           <SuperlativeIcon name={cat.iconName} className="w-5 h-5" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-xs">{cat.title}</h4>
-                          <p className="text-[10px] text-slate-500 leading-tight">{cat.description}</p>
+                          <h4 className="font-bold text-white text-xs">{cat.title}</h4>
+                          <p className="text-[10px] text-slate-400 leading-tight">{cat.description}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs font-extrabold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg">
+                        <span className="text-xs font-extrabold text-emerald-300 bg-emerald-950 border border-emerald-800/60 px-2 py-1 rounded-lg">
                           {voteCount}
                         </span>
 
@@ -434,8 +510,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                             hasVoted
                               ? 'bg-emerald-600 text-white cursor-default'
                               : userSession
-                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs active:scale-95'
-                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                              ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 active:scale-95'
+                              : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                           }`}
                         >
                           {hasVoted ? 'Voted' : 'Vote'}
@@ -451,6 +527,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           {/* TAB 3: COMMENTS & YEARBOOK SIGNATURES */}
           {activeTab === 'comments' && (
             <div className="space-y-4">
+              {commentFeedback && (
+                <div className="bg-amber-950/60 border border-amber-800/60 p-3 rounded-xl text-amber-300 text-xs flex items-center gap-2 font-medium">
+                  <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>{commentFeedback}</span>
+                </div>
+              )}
+
               {/* Comment Input Box */}
               {userSession ? (
                 <form onSubmit={handleCommentSubmit} className="flex gap-2">
@@ -458,58 +541,63 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     type="text"
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Write a message, signature, or wish for this graduate..."
-                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    placeholder="Write a message or wish for this graduate..."
+                    className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                   />
                   <button
                     type="submit"
                     disabled={!commentText.trim()}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold text-xs rounded-2xl transition flex items-center gap-1.5 shrink-0"
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-bold text-xs rounded-2xl transition flex items-center gap-1.5 shrink-0 shadow-md shadow-emerald-600/30"
                   >
                     <Send className="w-3.5 h-3.5" /> Post
                   </button>
                 </form>
               ) : (
-                <div className="bg-slate-100 border border-slate-200 p-3.5 rounded-2xl flex items-center justify-between text-xs text-slate-600">
-                  <span>Log in to leave a signature or message for {student.fullName}.</span>
+                <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between text-xs text-slate-300">
+                  <span>Log in with your Exam Number to leave a signature for {student.fullName}.</span>
                   <button
                     onClick={onOpenAuth}
-                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs"
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-sm"
                   >
-                    Log In
+                    Sign In
                   </button>
                 </div>
               )}
 
               {/* Comments List */}
               <div className="space-y-3 pt-2">
-                {comments.length === 0 ? (
+                {visibleComments.length === 0 ? (
                   <p className="text-center py-8 text-xs text-slate-400 italic">
-                    No yearbook signatures yet. Be the first to leave a message!
+                    No approved yearbook signatures yet. Be the first to leave a message!
                   </p>
                 ) : (
-                  comments.map((comment) => (
+                  visibleComments.map((comment) => (
                     <div
                       key={comment.id}
-                      className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-start justify-between gap-3"
+                      className="p-3.5 bg-slate-950 border border-slate-800/80 rounded-2xl flex items-start justify-between gap-3"
                     >
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-bold text-xs text-slate-900">{comment.authorName}</span>
+                          <span className="font-bold text-xs text-white">{comment.authorName}</span>
                           {comment.authorRole === 'admin' && (
                             <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 font-black text-[9px] rounded-md">
                               ADMIN
                             </span>
                           )}
-                          <span className="text-[10px] text-slate-400">{comment.createdAt}</span>
+                          {comment.status === 'pending' && (
+                            <span className="px-1.5 py-0.2 bg-amber-950 text-amber-300 border border-amber-800/60 font-bold text-[9px] rounded-md flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" /> Pending Admin Review
+                            </span>
+                          )}
+                          <span className="text-[10px] text-slate-500">{comment.createdAt}</span>
                         </div>
-                        <p className="text-xs text-slate-700 leading-relaxed">{comment.text}</p>
+                        <p className="text-xs text-slate-300 leading-relaxed">{comment.text}</p>
                       </div>
 
                       {(userSession?.role === 'admin' || userSession?.id === comment.authorId) && (
                         <button
                           onClick={() => onDeleteComment(comment.id)}
-                          className="text-slate-400 hover:text-red-500 p-1 rounded-lg transition shrink-0"
+                          className="text-slate-500 hover:text-rose-400 p-1 rounded-lg transition shrink-0"
                           title="Delete comment"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

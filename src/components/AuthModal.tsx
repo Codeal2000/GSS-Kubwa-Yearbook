@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, ShieldCheck, UserCheck, Key, User, GraduationCap, Check, Search } from 'lucide-react';
+import { X, ShieldCheck, UserCheck, Key, Lock, Calendar, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Student, UserSession } from '../types';
 
 interface AuthModalProps {
@@ -16,15 +16,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 }) => {
   const [authType, setAuthType] = useState<'student' | 'admin'>('student');
   
-  // Admin form
+  // Admin form state
   const [adminEmail, setAdminEmail] = useState('admin@gsskubwa.edu.ng');
   const [adminPassword, setAdminPassword] = useState('admin2026');
   const [adminError, setAdminError] = useState('');
 
-  // Student form
-  const [studentSearch, setStudentSearch] = useState('');
-  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [customStudentName, setCustomStudentName] = useState('');
+  // Secure Student form state (Exam Number + Date of Birth)
+  const [examNumberInput, setExamNumberInput] = useState('');
+  const [birthDateInput, setBirthDateInput] = useState('');
+  const [studentError, setStudentError] = useState('');
+  const [showSampleCredentials, setShowSampleCredentials] = useState(false);
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,33 +54,37 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleStudentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedStudentId) {
-      const target = students.find(s => s.id === selectedStudentId);
-      if (target) {
-        onLogin({
-          id: target.id,
-          fullName: target.fullName,
-          role: 'student',
-          examNumber: target.examNumber,
-        });
-        onClose();
-        return;
-      }
+    setStudentError('');
+
+    const normExam = examNumberInput.trim().toLowerCase();
+    const normDob = birthDateInput.trim().toLowerCase();
+
+    if (!normExam || !normDob) {
+      setStudentError('Please enter both your Full Exam Number and Date of Birth.');
+      return;
     }
 
-    if (customStudentName.trim()) {
+    // Match student strictly by examNumber and birthDate
+    const target = students.find(s => {
+      const sExam = (s.examNumber || '').trim().toLowerCase();
+      const sDob = (s.birthDate || '').trim().toLowerCase();
+      return sExam === normExam && sDob === normDob;
+    });
+
+    if (target) {
       onLogin({
-        id: `student_${Date.now()}`,
-        fullName: customStudentName.trim(),
+        id: target.id,
+        fullName: target.fullName,
         role: 'student',
+        examNumber: target.examNumber,
       });
       onClose();
+    } else {
+      setStudentError('Invalid Exam Number or Date of Birth. Please check your official registration credentials.');
     }
   };
 
-  const filteredStudentsForSelect = students.filter(s =>
-    s.fullName.toLowerCase().includes(studentSearch.toLowerCase())
-  ).slice(0, 8);
+  const sampleStudents = students.slice(0, 5);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -88,174 +93,206 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-md"
       />
 
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
-        className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-2xl z-10 my-auto"
+        className="relative w-full max-w-md bg-slate-900 border border-emerald-900/60 rounded-3xl overflow-hidden shadow-2xl z-10 my-auto text-white"
       >
         <div className="p-6">
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 transition"
+            className="absolute top-4 right-4 p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition"
           >
             <X className="w-5 h-5" />
           </button>
 
+          {/* School Header Logo */}
           <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white mx-auto mb-3 shadow-md shadow-indigo-600/20">
-              <GraduationCap className="w-7 h-7" />
+            <div className="w-16 h-16 bg-emerald-950 border border-emerald-500/30 rounded-2xl flex items-center justify-center mx-auto mb-3 p-1.5 shadow-lg shadow-emerald-900/40">
+              <img
+                src="/photos/gsskubwalogo.jpg"
+                alt="GSS Kubwa Logo"
+                className="w-full h-full object-contain rounded-xl"
+                onError={(e: any) => {
+                  e.target.style.display = 'none';
+                }}
+              />
             </div>
-            <h3 className="text-xl font-black text-slate-900">Sign In to Yearbook</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Log in to cast superlative votes, leave signatures, and update your profile.
+            <h3 className="text-xl font-black text-white tracking-tight">GSS KUBWA 2026</h3>
+            <p className="text-xs text-emerald-400 font-semibold mt-1">
+              Official Digital Yearbook Authentication
             </p>
           </div>
 
-          {/* Toggle Role */}
-          <div className="flex bg-slate-100 p-1 rounded-xl mb-5">
+          {/* Role Switcher */}
+          <div className="flex bg-slate-950 p-1 rounded-xl mb-5 border border-slate-800">
             <button
-              onClick={() => setAuthType('student')}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
+              type="button"
+              onClick={() => { setAuthType('student'); setStudentError(''); }}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
                 authType === 'student'
-                  ? 'bg-white text-indigo-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <UserCheck className="w-4 h-4" /> Student Login
             </button>
             <button
-              onClick={() => setAuthType('admin')}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
+              type="button"
+              onClick={() => { setAuthType('admin'); setAdminError(''); }}
+              className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
                 authType === 'admin'
-                  ? 'bg-white text-indigo-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
-              <ShieldCheck className="w-4 h-4" /> Admin Login
+              <ShieldCheck className="w-4 h-4" /> Admin Portal
             </button>
           </div>
 
-          {/* STUDENT AUTH FORM */}
+          {/* SECURE STUDENT AUTH FORM */}
           {authType === 'student' ? (
             <form onSubmit={handleStudentSubmit} className="space-y-4">
+              <div className="bg-emerald-950/40 border border-emerald-800/40 p-3 rounded-2xl text-[11px] text-emerald-300 leading-relaxed flex items-start gap-2">
+                <Lock className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Secure Student Access:</strong> Enter your full registration Exam Number and Date of Birth to access your profile and cast votes.
+                </span>
+              </div>
+
+              {studentError && (
+                <div className="bg-rose-950/60 border border-rose-800 p-3 rounded-xl text-rose-300 text-xs flex items-center gap-2 font-medium">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{studentError}</span>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Select Graduate Profile
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Full Exam Number
                 </label>
-                <div className="relative mb-2">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
                     type="text"
-                    placeholder="Search your name..."
-                    value={studentSearch}
-                    onChange={(e) => setStudentSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    required
+                    placeholder="e.g. GSS/KUB/2026/001"
+                    value={examNumberInput}
+                    onChange={(e) => setExamNumberInput(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-mono"
                   />
                 </div>
-
-                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
-                  {filteredStudentsForSelect.map((student) => (
-                    <button
-                      type="button"
-                      key={student.id}
-                      onClick={() => {
-                        setSelectedStudentId(student.id);
-                        setCustomStudentName(student.fullName);
-                      }}
-                      className={`w-full px-3 py-2 text-left text-xs font-semibold flex items-center justify-between transition ${
-                        selectedStudentId === student.id
-                          ? 'bg-indigo-50 text-indigo-600 font-bold'
-                          : 'hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <span>{student.fullName}</span>
-                      {selectedStudentId === student.id && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-2 text-[10px] text-slate-400 font-extrabold uppercase">Or enter name</span>
-                <div className="flex-grow border-t border-slate-200"></div>
               </div>
 
               <div>
-                <input
-                  type="text"
-                  placeholder="Your Full Name..."
-                  value={customStudentName}
-                  onChange={(e) => {
-                    setCustomStudentName(e.target.value);
-                    setSelectedStudentId('');
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Date of Birth
+                </label>
+                <div className="relative">
+                  <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 15 March"
+                    value={birthDateInput}
+                    onChange={(e) => setBirthDateInput(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={!selectedStudentId && !customStudentName.trim()}
-                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold text-xs rounded-xl transition shadow-sm"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-emerald-600/30 active:scale-98"
               >
-                Log In as Student
+                Log In to Student Account
               </button>
+
+              {/* Sample Credentials Helper Accordion */}
+              <div className="pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowSampleCredentials(!showSampleCredentials)}
+                  className="w-full text-left text-[11px] font-bold text-emerald-400 hover:text-emerald-300 flex items-center justify-between py-1"
+                >
+                  <span>Need help finding exam credentials?</span>
+                  {showSampleCredentials ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showSampleCredentials && (
+                  <div className="mt-2 p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5 text-[10px] text-slate-300">
+                    <p className="font-bold text-slate-400 text-[10px] uppercase">Sample Student Credentials:</p>
+                    {sampleStudents.map(s => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => {
+                          setExamNumberInput(s.examNumber);
+                          setBirthDateInput(s.birthDate);
+                        }}
+                        className="w-full text-left p-1.5 hover:bg-slate-900 rounded border border-transparent hover:border-emerald-800/60 flex items-center justify-between font-mono"
+                      >
+                        <span className="truncate font-semibold text-white">{s.fullName}</span>
+                        <span className="text-emerald-400 shrink-0 ml-2">{s.examNumber} ({s.birthDate})</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </form>
           ) : (
             /* ADMIN AUTH FORM */
             <form onSubmit={handleAdminSubmit} className="space-y-4">
-              {/* Credentials Callout Card */}
-              <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl text-amber-900 text-xs">
+              <div className="bg-amber-950/40 border border-amber-800/40 p-3 rounded-xl text-amber-300 text-xs">
                 <div className="font-bold flex items-center gap-1 mb-1">
-                  <Key className="w-3.5 h-3.5 text-amber-600" /> Admin Credentials:
+                  <Key className="w-3.5 h-3.5 text-amber-400" /> Admin Credentials:
                 </div>
                 <div className="font-mono text-[11px] space-y-0.5">
-                  <p>Email: <span className="font-bold">admin@gsskubwa.edu.ng</span></p>
-                  <p>Password: <span className="font-bold">admin2026</span></p>
+                  <p>Email: <span className="font-bold text-white">admin@gsskubwa.edu.ng</span></p>
+                  <p>Password: <span className="font-bold text-white">admin2026</span></p>
                 </div>
                 <button
                   type="button"
                   onClick={handleQuickAdminLogin}
-                  className="w-full mt-2 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg transition"
+                  className="w-full mt-2.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg transition shadow-md"
                 >
                   1-Click Login as Admin
                 </button>
               </div>
 
               {adminError && (
-                <p className="text-red-600 text-xs font-semibold">{adminError}</p>
+                <p className="text-rose-400 text-xs font-semibold">{adminError}</p>
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Admin Email</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Admin Email</label>
                 <input
                   type="email"
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-mono"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Password</label>
                 <input
                   type="password"
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-mono"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 font-mono"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition shadow-sm"
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition shadow-md shadow-emerald-600/30"
               >
-                Log In as Admin
+                Log In to Admin Portal
               </button>
             </form>
           )}
