@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   X, Calendar, Briefcase, Heart, Mail, Phone, Award, 
-  MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload, Clock, AlertCircle, ShieldCheck
+  MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload, Clock, AlertCircle, ShieldCheck, Copy, Camera, Printer
 } from 'lucide-react';
 import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
@@ -36,9 +36,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'voting' | 'comments'>('profile');
   const [commentText, setCommentText] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedBio, setCopiedBio] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState('');
   const [commentFeedback, setCommentFeedback] = useState('');
+
+  const handleCopyBio = () => {
+    const bioText = `🎓 ${student.fullName} - GSS Kubwa Class of 2026
+🎂 Birthday: ${student.birthDate}
+💼 Career Goal: ${student.careerPath || 'Not specified'}
+💬 Quote: "${student.quote || 'Empowered to excel!'}"
+❤️ Passions: ${student.hobbies || 'Not specified'}
+${student.bestMemory ? `✨ Best Memory: ${student.bestMemory}` : ''}`;
+
+    navigator.clipboard.writeText(bioText);
+    setCopiedBio(true);
+    setTimeout(() => setCopiedBio(false), 2500);
+  };
+
+  const handlePrintScreenshot = () => {
+    window.print();
+  };
 
   // Edit form state
   const [editQuote, setEditQuote] = useState(student.quote || '');
@@ -194,12 +212,30 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons: Share & Edit */}
-          <div className="flex items-center justify-end gap-2 mt-4 pt-3 border-t border-emerald-800/80">
+          {/* Action Buttons: Share, Copy Bio, Print/Screenshot, & Edit */}
+          <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-emerald-800/80">
+            <button
+              onClick={handleCopyBio}
+              className="px-3 py-1.5 bg-emerald-800/90 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-700 shadow-sm"
+              title="Copy Profile Text to Clipboard"
+            >
+              {copiedBio ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 text-emerald-300" />}
+              {copiedBio ? 'Bio Copied!' : 'Copy Bio'}
+            </button>
+
+            <button
+              onClick={handlePrintScreenshot}
+              className="px-3 py-1.5 bg-emerald-800/90 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-700 shadow-sm"
+              title="Save or Print Card Snapshot"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Snapshot</span>
+            </button>
+
             {canEdit && !isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-700"
               >
                 <Edit2 className="w-3.5 h-3.5 text-emerald-300" /> Edit Profile
               </button>

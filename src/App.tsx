@@ -5,9 +5,10 @@ import {
   updateDoc, increment, setDoc, deleteDoc, addDoc 
 } from 'firebase/firestore';
 import { getInitialStudents, seedStudentsToFirestore } from './seedData';
-import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError } from './types';
+import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError, handleLogoImageError } from './types';
 import { Navbar } from './components/Navbar';
 import { StudentCard } from './components/StudentCard';
+import { SpotlightCard } from './components/SpotlightCard';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
@@ -17,7 +18,7 @@ import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
   GraduationCap, Trophy, Users, Star, 
   Award, Search, Filter, ShieldCheck, Check,
-  ArrowRight, ChevronRight, Lock
+  ArrowRight, ChevronRight, ChevronLeft, Lock, Sparkles, Copy, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -61,6 +62,7 @@ export default function App() {
   // Navigation & Filtering
   const [activeTab, setActiveTab] = useState<'all' | 'featured' | 'birthdays' | 'halloffame'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [spotlightIndex, setSpotlightIndex] = useState(0);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -207,9 +209,17 @@ export default function App() {
     return result;
   };
 
+  const studentVoteTotalsMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    students.forEach((student) => {
+      const counts = getStudentVoteCounts(student);
+      map[student.id] = Object.values(counts).reduce((a, b) => a + b, 0);
+    });
+    return map;
+  }, [students, localVotes]);
+
   const getTotalStudentVotes = (student: Student) => {
-    const counts = getStudentVoteCounts(student);
-    return Object.values(counts).reduce((a, b) => a + b, 0);
+    return studentVoteTotalsMap[student.id] || 0;
   };
 
   // Current Month/Day for birthdays tab
@@ -249,6 +259,12 @@ export default function App() {
     return students.filter(s => s.birthDate.toLowerCase() === currentMonthDay.toLowerCase());
   }, [students, currentMonthDay]);
 
+  // Spotlight / Featured Students List
+  const spotlightStudents = useMemo(() => {
+    const featured = students.filter(s => s.featuredOnHome);
+    return featured.length > 0 ? featured : students.slice(0, 10);
+  }, [students]);
+
   // Pending items for admin
   const pendingApprovalsCount = useMemo(() => {
     const pendingProfiles = students.filter(s => Boolean(s.pendingProfileUpdate)).length;
@@ -263,9 +279,26 @@ export default function App() {
     return filteredStudents.slice(start, start + itemsPerPage);
   }, [filteredStudents, currentPage, itemsPerPage]);
 
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
+
+  const handleTabChange = (tab: 'all' | 'featured' | 'birthdays' | 'halloffame') => {
+    setActiveTab(tab);
+    scrollToTop();
+    requestAnimationFrame(() => scrollToTop());
+  };
+
   useEffect(() => {
     setCurrentPage(1);
+    scrollToTop();
   }, [searchTerm, activeTab, selectedCategory]);
+
+  useEffect(() => {
+    scrollToTop();
+  }, [currentPage]);
 
   // Handle Voting
   const handleVote = async (studentId: string, categoryId: string) => {
@@ -432,7 +465,7 @@ export default function App() {
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleTabChange}
         userSession={userSession}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={() => setUserSession(null)}
@@ -463,7 +496,7 @@ export default function App() {
               <div className="lg:col-span-7 space-y-6">
                 <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-950 font-extrabold text-xs shadow-sm">
                   <div className="w-5 h-5 rounded-full overflow-hidden bg-white shrink-0 p-0.5 border border-emerald-300">
-                    <img src="/photos/gsskubwalogo.jpg" alt="Logo" className="w-full h-full object-contain" />
+                    <img src="/photos/gsskubwalogo.jpg" alt="Logo" className="w-full h-full object-contain" onError={handleLogoImageError} />
                   </div>
                   <span>Government Secondary School, Kubwa</span>
                 </div>
@@ -526,7 +559,7 @@ export default function App() {
                   </button>
 
                   <button
-                    onClick={() => setActiveTab('halloffame')}
+                    onClick={() => handleTabChange('halloffame')}
                     className="px-5 py-3 bg-white hover:bg-emerald-50 text-emerald-950 border border-emerald-300 font-bold text-xs sm:text-sm rounded-xl transition duration-200 flex items-center gap-2 shadow-sm"
                   >
                     <Trophy className="w-4 h-4 text-amber-500" />
@@ -535,47 +568,56 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Column: Featured Spotlight Showcase */}
+              {/* Right Column: Prominent Featured Spotlight Showcase */}
               <div className="lg:col-span-5">
-                <div className="bg-white border border-emerald-200 p-4 sm:p-5 rounded-3xl shadow-lg space-y-4">
-                  <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+                <div className="bg-gradient-to-br from-amber-500/10 via-white to-emerald-500/10 border-2 border-amber-300/80 p-4 sm:p-5 rounded-3xl shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-slate-950 tracking-wide">
-                        Graduate Spotlight
-                      </h3>
+                      <div className="p-1.5 bg-amber-500 text-slate-950 rounded-xl shadow-sm">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-xs sm:text-sm text-slate-950 tracking-wide">
+                          Graduate Spotlight Showcase
+                        </h3>
+                        <p className="text-[10px] text-amber-800 font-bold">
+                          {spotlightStudents.length > 0 ? spotlightIndex + 1 : 0} of {spotlightStudents.length} Featured Profiles
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => setActiveTab('featured')}
-                      className="text-[11px] font-bold text-emerald-700 hover:text-emerald-900 transition flex items-center gap-1"
-                    >
-                      View All <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setSpotlightIndex((prev) => (prev > 0 ? prev - 1 : spotlightStudents.length - 1))}
+                        className="p-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 transition border border-amber-300 shadow-sm"
+                        title="Previous Spotlight"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setSpotlightIndex((prev) => (prev < spotlightStudents.length - 1 ? prev + 1 : 0))}
+                        className="p-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 transition border border-amber-300 shadow-sm"
+                        title="Next Spotlight"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleTabChange('featured')}
+                        className="ml-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-950 transition flex items-center gap-0.5 bg-emerald-100/80 px-2.5 py-1 rounded-xl border border-emerald-200"
+                      >
+                        View All
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2.5">
-                    {students.slice(0, 6).map((student) => (
-                      <div
-                        key={student.id}
-                        onClick={() => setSelectedStudent(student)}
-                        className="group relative rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 aspect-[4/5] cursor-pointer shadow-sm hover:-translate-y-1 hover:border-emerald-500 transition duration-300"
-                      >
-                        <img
-                          src={getStudentPhotoUrl(student.photoFilename)}
-                          alt={student.fullName}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          onError={(e) => handleStudentImageError(e, student.fullName)}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent p-2 flex flex-col justify-end">
-                          <p className="text-[10px] font-bold text-white line-clamp-1 group-hover:text-emerald-300 transition">
-                            {student.fullName.split(' ')[0]}
-                          </p>
-                          <p className="text-[8px] text-slate-200 line-clamp-1 font-semibold">
-                            {student.careerPath || 'Class of 2026'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {/* Prominent Fully Displayed Spotlight Card */}
+                  {spotlightStudents[spotlightIndex] && (
+                    <SpotlightCard
+                      student={spotlightStudents[spotlightIndex]}
+                      totalVotes={getTotalStudentVotes(spotlightStudents[spotlightIndex])}
+                      onSelect={setSelectedStudent}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -651,7 +693,7 @@ export default function App() {
                 : `No results match "${searchTerm}". Check the spelling.`}
             </p>
             <button
-              onClick={() => { setSearchTerm(''); setActiveTab('all'); }}
+              onClick={() => { setSearchTerm(''); handleTabChange('all'); }}
               className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs transition shadow-md shadow-emerald-700/20"
             >
               Reset Search & Filters
@@ -707,7 +749,7 @@ export default function App() {
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-center p-1 shadow-sm">
-                <img src="/photos/gsskubwalogo.jpg" alt="Logo" className="w-full h-full object-contain" />
+                <img src="/photos/gsskubwalogo.jpg" alt="Logo" className="w-full h-full object-contain" onError={handleLogoImageError} />
               </div>
               <span className="font-black text-emerald-950 text-base tracking-tight">GSS KUBWA 2026</span>
             </div>
@@ -719,10 +761,10 @@ export default function App() {
           <div>
             <h4 className="font-black text-slate-950 uppercase text-[11px] tracking-wider mb-3">Quick Navigation</h4>
             <ul className="space-y-2 text-[11px] font-semibold text-slate-700">
-              <li><button onClick={() => { setActiveTab('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 transition">All Graduates</button></li>
-              <li><button onClick={() => { setActiveTab('featured'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 transition">Featured Spotlight</button></li>
-              <li><button onClick={() => { setActiveTab('halloffame'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 transition">Peer Awards Leaderboard</button></li>
-              <li><button onClick={() => { setActiveTab('birthdays'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="hover:text-emerald-700 transition">Birthdays Today</button></li>
+              <li><button onClick={() => handleTabChange('all')} className="hover:text-emerald-700 transition">All Graduates</button></li>
+              <li><button onClick={() => handleTabChange('featured')} className="hover:text-emerald-700 transition">Featured Spotlight</button></li>
+              <li><button onClick={() => handleTabChange('halloffame')} className="hover:text-emerald-700 transition">Peer Awards Leaderboard</button></li>
+              <li><button onClick={() => handleTabChange('birthdays')} className="hover:text-emerald-700 transition">Birthdays Today</button></li>
             </ul>
           </div>
 

@@ -32,6 +32,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   totalStudents,
   pendingApprovalsCount = 0
 }) => {
+  const handleTabClick = (tabId: 'all' | 'featured' | 'birthdays' | 'halloffame') => {
+    setActiveTab(tabId);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  };
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-emerald-100 shadow-sm transition-all">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -154,9 +160,9 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto py-2.5 border-t border-emerald-100 no-scrollbar touch-pan-x flex-nowrap w-full scroll-smooth">
+        <div className="flex items-center gap-2 overflow-x-auto py-2.5 border-t border-emerald-100 no-scrollbar touch-pan-x flex-nowrap w-full">
           <button
-            onClick={() => setActiveTab('all')}
+            onClick={() => handleTabClick('all')}
             className={`shrink-0 flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
               activeTab === 'all'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -167,7 +173,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('featured')}
+            onClick={() => handleTabClick('featured')}
             className={`shrink-0 flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
               activeTab === 'featured'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -178,7 +184,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('birthdays')}
+            onClick={() => handleTabClick('birthdays')}
             className={`shrink-0 relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
               activeTab === 'birthdays'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -194,7 +200,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('halloffame')}
+            onClick={() => handleTabClick('halloffame')}
             className={`shrink-0 flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
               activeTab === 'halloffame'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'

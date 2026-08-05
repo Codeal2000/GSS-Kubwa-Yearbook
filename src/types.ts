@@ -85,8 +85,44 @@ export interface UserSession {
   email?: string;
 }
 
+export function generateInitialsAvatar(fullName: string): string {
+  const name = fullName ? fullName.trim() : 'Student';
+  const parts = name.split(/\s+/);
+  let initials = '';
+  if (parts.length >= 2) {
+    initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  } else if (parts.length === 1 && parts[0].length > 0) {
+    initials = parts[0].substring(0, 2).toUpperCase();
+  } else {
+    initials = 'GS';
+  }
+
+  // Deterministic color palette selection from student name hash
+  const nameHash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const colorPalettes = [
+    { bg: '#047857', fg: '#ffffff' }, // emerald-700
+    { bg: '#0f766e', fg: '#ffffff' }, // teal-700
+    { bg: '#0369a1', fg: '#ffffff' }, // sky-700
+    { bg: '#1d4ed8', fg: '#ffffff' }, // blue-700
+    { bg: '#4338ca', fg: '#ffffff' }, // indigo-700
+    { bg: '#6d28d9', fg: '#ffffff' }, // violet-700
+    { bg: '#be185d', fg: '#ffffff' }, // pink-700
+    { bg: '#c2410c', fg: '#ffffff' }, // orange-700
+    { bg: '#15803d', fg: '#ffffff' }, // green-700
+    { bg: '#0891b2', fg: '#ffffff' }, // cyan-700
+  ];
+  const theme = colorPalettes[nameHash % colorPalettes.length];
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <rect width="128" height="128" fill="${theme.bg}" />
+    <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="${theme.fg}" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="44" letter-spacing="1">${initials}</text>
+  </svg>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export function getStudentPhotoUrl(photoFilename?: string): string {
-  if (!photoFilename) return '/photos/gsskubwalogo.jpg';
+  if (!photoFilename) return generateInitialsAvatar('Student');
   if (photoFilename.startsWith('data:') || photoFilename.startsWith('http://') || photoFilename.startsWith('https://')) {
     return photoFilename;
   }
@@ -94,25 +130,21 @@ export function getStudentPhotoUrl(photoFilename?: string): string {
   if (clean.startsWith('photos/')) {
     clean = clean.replace(/^photos\//, '');
   }
-  const nameWithoutExt = clean.replace(/\.(jpg|jpeg|png|webp|jfif)$/i, '');
-  return `/photos/${nameWithoutExt}.webp`;
+  return `/photos/${clean}`;
 }
 
 export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {
   const target = e.currentTarget;
-  const currentSrc = target.src;
-
-  if (currentSrc.endsWith('.webp') && !target.dataset.fallbackTried) {
-    target.dataset.fallbackTried = 'jpg';
-    target.src = currentSrc.replace(/\.webp$/, '.jpg');
-    return;
-  }
-  if (currentSrc.endsWith('.jpg') && target.dataset.fallbackTried === 'jpg') {
-    target.dataset.fallbackTried = 'png';
-    target.src = currentSrc.replace(/\.jpg$/, '.png');
-    return;
-  }
-
   target.onerror = null;
-  target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=065f46&color=ffffff&size=256&bold=true`;
+  target.src = generateInitialsAvatar(fullName);
+}
+
+export function handleLogoImageError(e: React.SyntheticEvent<HTMLImageElement, Event>): void {
+  const target = e.currentTarget;
+  target.onerror = null;
+  const logoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+    <rect width="128" height="128" fill="#065f46" rx="16" />
+    <text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="32">GSS</text>
+  </svg>`;
+  target.src = `data:image/svg+xml;utf8,${encodeURIComponent(logoSvg)}`;
 }
