@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from './firebase';
 import { 
   collection, onSnapshot, query, orderBy, doc, 
-  updateDoc, increment, setDoc, deleteDoc, addDoc 
+  updateDoc, increment, setDoc, deleteDoc, addDoc, deleteField 
 } from 'firebase/firestore';
 import { getInitialStudents, seedStudentsToFirestore } from './seedData';
 import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError, handleLogoImageError } from './types';
@@ -412,7 +412,15 @@ export default function App() {
       setSelectedStudent(prev => prev ? { ...prev, ...updatedData } : null);
     }
     try {
-      await updateDoc(doc(db, 'students', id), updatedData);
+      const firestorePayload: Record<string, any> = {};
+      Object.entries(updatedData).forEach(([key, val]) => {
+        if (val === undefined) {
+          firestorePayload[key] = deleteField();
+        } else {
+          firestorePayload[key] = val;
+        }
+      });
+      await updateDoc(doc(db, 'students', id), firestorePayload);
     } catch (e) {
       console.warn("Firestore update:", e);
     }

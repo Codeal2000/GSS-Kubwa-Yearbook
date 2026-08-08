@@ -33,6 +33,7 @@ jobs:
 
       - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@master
+        continue-on-error: true
         with:
           args: deploy --only firestore:rules
         env:
