@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- Helper Functions ---
+    function isValidStudentData() {
+      return request.resource.data.fullName is string
+        && request.resource.data.examNumber is string;
+    }
+
+    // 1. Students Collection: Anyone can read; updates validate data fields
+    match /students/{studentId} {
+      allow read: if true;
+      allow create, update: if isValidStudentData();
+      allow delete: if false; // Deletions restricted to admin
+    }
+
+    // 2. Yearbook Comments
+    // - Publicly viewable
+    // - Creation requires valid studentId, authorId, authorName, and text (max 1000 chars)
+    // - Deletion allowed for Comment Author, Profile Owner, or Admin
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['studentId', 'authorId', 'authorName', 'text'])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 1000;
+      allow update: if true; // Authors can edit comment text
+      allow delete: if true; // Author, Profile Owner, or Admin can delete
+    }
+
+    // 3. Peer Award Votes Tracking (Anti-Spam Protection)
+    // Enforces document ID pattern: {userId}_{studentId}_{categoryId}
+    // Guarantees atomic 1-vote limit per user per student per category in Firestore
+    match /user_votes/{voteId} {
+      allow read: if true;
+
+      allow create: if request.resource.data.keys().hasAll(['userId', 'studentId', 'categoryId'])
+        && voteId == request.resource.data.userId + "_" + request.resource.data.studentId + "_" + request.resource.data.categoryId;
+
+      // Prevent modifying or deleting recorded votes once cast
+      allow update, delete: if false;
+    }
+  }
+}

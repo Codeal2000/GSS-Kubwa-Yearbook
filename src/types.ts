@@ -131,7 +131,11 @@ export function getStudentPhotoUrl(photoFilename?: string): string {
     clean = clean.replace(/^photos\//, '');
   }
   const nameWithoutExt = clean.replace(/\.(jpe?g|png|webp|jfif|gif|svg)$/i, '');
-  return `/photos/${nameWithoutExt || clean}.webp`;
+  const fileName = nameWithoutExt || clean;
+
+  const baseUrl = import.meta.env.BASE_URL || './';
+  const prefix = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  return `${prefix}photos/${fileName}.webp`;
 }
 
 export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {

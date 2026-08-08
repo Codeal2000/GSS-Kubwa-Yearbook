@@ -1,18 +1,19 @@
 import React from 'react';
+import { getStudentPhotoUrl } from '../types';
 
 const CATEGORY_STUDENT_IMAGES: Record<string, string> = {
-  Laptop: "/photos/1.webp",
-  Palette: "/photos/2.webp",
-  BookOpen: "/photos/3.webp",
-  Crown: "/photos/4.webp",
-  Smile: "/photos/5.webp",
-  Briefcase: "/photos/6.webp",
-  Shirt: "/photos/7.webp",
-  Laugh: "/photos/8.webp",
-  Trophy: "/photos/9.webp",
-  Feather: "/photos/10.webp",
-  Globe: "/photos/11.webp",
-  HeartHandshake: "/photos/12.webp",
+  Laptop: "1.webp",
+  Palette: "2.webp",
+  BookOpen: "3.webp",
+  Crown: "4.webp",
+  Smile: "5.webp",
+  Briefcase: "6.webp",
+  Shirt: "7.webp",
+  Laugh: "8.webp",
+  Trophy: "9.webp",
+  Feather: "10.webp",
+  Globe: "11.webp",
+  HeartHandshake: "12.webp",
 };
 
 interface SuperlativeIconProps {
@@ -21,7 +22,8 @@ interface SuperlativeIconProps {
 }
 
 export const SuperlativeIcon: React.FC<SuperlativeIconProps> = ({ name, className = "w-5 h-5" }) => {
-  const imageUrl = CATEGORY_STUDENT_IMAGES[name] || "/photos/1.webp";
+  const photoName = CATEGORY_STUDENT_IMAGES[name] || "1.webp";
+  const imageUrl = getStudentPhotoUrl(photoName);
   return (
     <img
       src={imageUrl}
@@ -32,7 +34,9 @@ export const SuperlativeIcon: React.FC<SuperlativeIconProps> = ({ name, classNam
         if (target.src.endsWith('.webp')) {
           target.src = target.src.replace(/\.webp$/, '.jpg');
         } else {
-          target.src = '/photos/gsskubwalogo.jpg';
+          const baseUrl = import.meta.env.BASE_URL || './';
+          const prefix = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+          target.src = `${prefix}photos/gsskubwalogo.jpg`;
         }
       }}
     />

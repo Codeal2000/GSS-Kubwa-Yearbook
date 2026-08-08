@@ -30,3 +30,11 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_GSS_KUBWA_YEARBOOK }}'
           channelId: live
           projectId: gss-kubwa-yearbook
+
+      - name: Deploy Firestore Rules
+        uses: w9jds/firebase-action@master
+        with:
+          args: deploy --only firestore:rules
+        env:
+          GCP_SA_KEY: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_GSS_KUBWA_YEARBOOK }}'
+          PROJECT_ID: gss-kubwa-yearbook

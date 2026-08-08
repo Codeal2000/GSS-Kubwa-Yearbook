@@ -516,7 +516,7 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-3 max-w-sm pt-1">
                   <div className="bg-white border border-emerald-200/80 p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500 transition duration-300 shadow-sm flex items-center gap-3">
                     <img
-                      src="/photos/1.webp"
+                      src={getStudentPhotoUrl('1.webp')}
                       alt="Graduates"
                       className="w-10 h-10 rounded-xl object-cover border border-emerald-300 shrink-0 shadow-sm"
                       onError={(e) => handleStudentImageError(e, 'Graduates')}
@@ -531,7 +531,7 @@ export default function App() {
 
                   <div className="bg-white border border-emerald-200/80 p-3.5 sm:p-4 rounded-2xl hover:border-emerald-500 transition duration-300 shadow-sm flex items-center gap-3">
                     <img
-                      src="/photos/2.webp"
+                      src={getStudentPhotoUrl('2.webp')}
                       alt="Peer Awards"
                       className="w-10 h-10 rounded-xl object-cover border border-amber-300 shrink-0 shadow-sm"
                       onError={(e) => handleStudentImageError(e, 'Peer Awards')}
