@@ -1,4 +1,4 @@
-export async function convertFileToWebp(file: File, quality = 0.85): Promise<string> {
+export async function convertFileToWebp(file: File, maxDimension = 600, quality = 0.75): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Failed to read image file'));
@@ -10,15 +10,28 @@ export async function convertFileToWebp(file: File, quality = 0.85): Promise<str
       img.onerror = () => reject(new Error('Failed to load image'));
       img.onload = () => {
         try {
+          let width = img.naturalWidth || img.width || maxDimension;
+          let height = img.naturalHeight || img.height || maxDimension;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
           const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth || img.width || 600;
-          canvas.height = img.naturalHeight || img.height || 600;
+          canvas.width = width;
+          canvas.height = height;
           const ctx = canvas.getContext('2d');
           if (!ctx) {
             resolve(src);
             return;
           }
-          ctx.drawImage(img, 0, 0);
+          ctx.drawImage(img, 0, 0, width, height);
           const webpDataUrl = canvas.toDataURL('image/webp', quality);
           resolve(webpDataUrl);
         } catch (err) {

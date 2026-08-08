@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   X, Calendar, Briefcase, Heart, Mail, Phone, Award, 
-  MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload, Clock, AlertCircle, ShieldCheck, Copy, Camera, Printer
+  MessageSquare, Trash2, Edit2, Check, Share2, LogIn, Send, User, Upload, Clock, AlertCircle, ShieldCheck, Copy, Camera, Printer, CheckCircle
 } from 'lucide-react';
 import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
@@ -166,11 +166,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             {/* Student Photo */}
             <div className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden bg-emerald-950 ring-4 ring-emerald-400/30 shadow-xl shrink-0">
               <img
-                src={getStudentPhotoUrl(student.photoFilename)}
+                src={getStudentPhotoUrl(student.pendingProfileUpdate?.photoFilename || student.photoFilename)}
                 alt={student.fullName}
                 className="w-full h-full object-cover"
                 onError={(e) => handleStudentImageError(e, student.fullName)}
               />
+              {student.pendingProfileUpdate?.photoFilename && (
+                <div className="absolute bottom-0 inset-x-0 bg-amber-600/95 text-white text-[9px] font-black uppercase text-center py-0.5 tracking-wider backdrop-blur-xs">
+                  Pending Review
+                </div>
+              )}
             </div>
 
             {/* Title & Info */}
@@ -237,11 +242,45 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         )}
 
         {student.pendingProfileUpdate && canEdit && (
-          <div className="bg-amber-50 border-b border-amber-200 p-3 px-6 text-xs text-amber-900 flex items-center gap-2 font-medium">
-            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              Pending Admin Approval for your new profile photo (submitted on {student.pendingProfileUpdate.submittedAt}).
-            </span>
+          <div className="bg-amber-50 border-b border-amber-200 p-3 px-6 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2 font-medium">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>
+                Pending Admin Approval for new profile photo (submitted on {student.pendingProfileUpdate.submittedAt}).
+              </span>
+            </div>
+            {userSession?.role === 'admin' && (
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    if (student.pendingProfileUpdate) {
+                      onUpdateProfile({
+                        quote: student.pendingProfileUpdate.quote || student.quote,
+                        hobbies: student.pendingProfileUpdate.hobbies || student.hobbies,
+                        careerPath: student.pendingProfileUpdate.careerPath || student.careerPath,
+                        photoFilename: student.pendingProfileUpdate.photoFilename || student.photoFilename,
+                        email: student.pendingProfileUpdate.email || student.email,
+                        phone: student.pendingProfileUpdate.phone || student.phone,
+                        pendingProfileUpdate: undefined
+                      });
+                      setUpdateFeedback('Photo update approved successfully!');
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition flex items-center gap-1 shadow-xs"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" /> Approve Photo
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateProfile({ pendingProfileUpdate: undefined });
+                    setUpdateFeedback('Pending update rejected.');
+                  }}
+                  className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-bold text-[11px] transition"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
           </div>
         )}
 

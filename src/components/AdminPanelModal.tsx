@@ -382,6 +382,16 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               <div className="space-y-3">
                 <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-500 flex items-center justify-between">
                   <span>Pending Photo Changes ({pendingProfileStudents.length})</span>
+                  {pendingProfileStudents.length > 0 && (
+                    <button
+                      onClick={() => {
+                        pendingProfileStudents.forEach(s => handleApproveProfile(s));
+                      }}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition flex items-center gap-1 shadow-xs"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" /> Approve All ({pendingProfileStudents.length})
+                    </button>
+                  )}
                 </h4>
 
                 {pendingProfileStudents.length === 0 ? (
@@ -780,13 +790,36 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                 />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Photo Filename Asset</label>
-                                <input
-                                  type="text"
-                                  value={editPhoto}
-                                  onChange={(e) => setEditPhoto(e.target.value)}
-                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
-                                />
+                                <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Photo Filename Asset / Upload</label>
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={editPhoto}
+                                    onChange={(e) => setEditPhoto(e.target.value)}
+                                    className="flex-1 px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                                    placeholder="1.webp or image data"
+                                  />
+                                  <label className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs cursor-pointer transition shrink-0 flex items-center gap-1 shadow-xs">
+                                    <Upload className="w-3.5 h-3.5" />
+                                    <span>Browse</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={async (e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          try {
+                                            const webpDataUrl = await convertFileToWebp(file);
+                                            setEditPhoto(webpDataUrl);
+                                          } catch (err) {
+                                            console.error("Failed to convert image:", err);
+                                          }
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </div>
                               </div>
                               <div>
                                 <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Future Career Goal</label>
