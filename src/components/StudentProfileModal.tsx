@@ -7,12 +7,14 @@ import {
 import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
 import { convertFileToWebp, ensureWebpFilename } from '../utils/imageUtils';
+import { uploadStudentPhotoToStorage } from '../lib/supabase';
+import { UserVotesMap, isWithin24Hours, getHoursRemainingIn24hWindow, getVotingConfig, isVotingActive } from '../utils/votingSystem';
 
 interface StudentProfileModalProps {
   student: Student;
   userSession: UserSession | null;
   comments: CommentItem[];
-  userVotesMap: Record<string, boolean>; // superlativeId -> boolean
+  userVotesMap: UserVotesMap;
   onClose: () => void;
   onVote: (category: string) => void;
   onAddComment: (text: string) => void;
@@ -392,12 +394,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           if (file) {
                             try {
                               const webpDataUrl = await convertFileToWebp(file);
-                              setEditPhotoFilename(webpDataUrl);
+                              const finalUrl = await uploadStudentPhotoToStorage(file, webpDataUrl);
+                              setEditPhotoFilename(finalUrl);
                             } catch {
                               const reader = new FileReader();
-                              reader.onload = (uploadEvent) => {
+                              reader.onload = async (uploadEvent) => {
                                 if (uploadEvent.target?.result) {
-                                  setEditPhotoFilename(uploadEvent.target.result as string);
+                                  const dataUrl = uploadEvent.target.result as string;
+                                  const finalUrl = await uploadStudentPhotoToStorage(file, dataUrl);
+                                  setEditPhotoFilename(finalUrl);
                                 }
                               };
                               reader.readAsDataURL(file);
@@ -565,29 +570,75 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
+              {(() => {
+                const config = getVotingConfig();
+                const activeCheck = isVotingActive(config);
+                return !activeCheck.active ? (
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex items-center gap-2 text-amber-900 text-xs font-bold">
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>🔒 Voting Notice: {activeCheck.reason}</span>
+                  </div>
+                ) : null;
+              })()}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {SUPERLATIVES.map((cat) => {
                   const voteCount = student.votes?.[cat.id] || 0;
-                  const hasVoted = Boolean(userVotesMap[cat.id]);
+                  const voteRecord = userVotesMap[cat.id];
+                  const isVotedHere = voteRecord?.studentId === student.id;
+                  const isVotedElsewhere = Boolean(voteRecord) && !isVotedHere;
+                  const canModify = voteRecord ? isWithin24Hours(voteRecord.timestamp) : true;
+                  const activeCheck = isVotingActive(getVotingConfig());
+
+                  let btnText = 'Vote';
+                  let btnStyle = 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-95';
+
+                  if (!activeCheck.active) {
+                    btnText = 'Closed';
+                    btnStyle = 'bg-slate-100 text-slate-400 cursor-not-allowed';
+                  } else if (isVotedHere) {
+                    if (canModify) {
+                      btnText = 'Revoke Vote';
+                      btnStyle = 'bg-emerald-700 hover:bg-rose-600 text-white shadow-xs cursor-pointer';
+                    } else {
+                      btnText = 'Voted (Locked)';
+                      btnStyle = 'bg-emerald-800 text-emerald-100 cursor-default opacity-80';
+                    }
+                  } else if (isVotedElsewhere) {
+                    if (canModify) {
+                      btnText = 'Change Vote Here';
+                      btnStyle = 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs cursor-pointer';
+                    } else {
+                      btnText = 'Voted Elsewhere';
+                      btnStyle = 'bg-slate-100 text-slate-400 cursor-not-allowed';
+                    }
+                  } else if (!userSession) {
+                    btnText = 'Vote';
+                    btnStyle = 'bg-slate-100 text-slate-400 cursor-not-allowed';
+                  }
 
                   return (
                     <div
                       key={cat.id}
                       className={`p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
-                        hasVoted
+                        isVotedHere
                           ? 'bg-emerald-50 border-emerald-300 shadow-sm'
                           : 'bg-white border-slate-200 hover:border-emerald-200'
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          hasVoted ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                          isVotedHere ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                         }`}>
                           <SuperlativeIcon name={cat.iconName} className="w-5 h-5" />
                         </div>
                         <div>
                           <h4 className="font-bold text-slate-900 text-xs">{cat.title}</h4>
-                          <p className="text-[10px] text-slate-500 leading-tight">{cat.description}</p>
+                          <p className="text-[10px] text-slate-500 leading-tight">
+                            {isVotedHere && canModify && 'You voted for this graduate (Click button to revoke within 24h)'}
+                            {isVotedHere && !canModify && 'Your vote is locked after 24 hours'}
+                            {!isVotedHere && cat.description}
+                          </p>
                         </div>
                       </div>
 
@@ -598,16 +649,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                         <button
                           onClick={() => onVote(cat.id)}
-                          disabled={!userSession || hasVoted}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                            hasVoted
-                              ? 'bg-emerald-600 text-white cursor-default'
-                              : userSession
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm active:scale-95'
-                              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                          }`}
+                          disabled={!userSession || (!canModify && Boolean(voteRecord)) || !activeCheck.active}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${btnStyle}`}
                         >
-                          {hasVoted ? 'Voted' : 'Vote'}
+                          {btnText}
                         </button>
                       </div>
                     </div>

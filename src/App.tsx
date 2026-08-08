@@ -6,6 +6,7 @@ import {
 } from 'firebase/firestore';
 import { getInitialStudents, seedStudentsToFirestore } from './seedData';
 import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError, handleLogoImageError } from './types';
+import { getUserVotesMap, saveUserVotesMap, isWithin24Hours, getVotingConfig, isVotingActive, UserVotesMap } from './utils/votingSystem';
 import { Navbar } from './components/Navbar';
 import { StudentCard } from './components/StudentCard';
 import { SpotlightCard } from './components/SpotlightCard';
@@ -84,15 +85,16 @@ export default function App() {
     }
   });
 
-  // Track votes cast by current user: studentId -> categoryId -> true
-  const [userVotes, setUserVotes] = useState<Record<string, Record<string, boolean>>>(() => {
-    try {
-      const saved = localStorage.getItem('gss_kubwa_user_votes_map');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
+  // Track user votes map: categoryId -> { studentId, timestamp }
+  const [userVoteRecords, setUserVoteRecords] = useState<UserVotesMap>(() => {
+    return getUserVotesMap(userSession?.id || 'guest');
   });
+
+  useEffect(() => {
+    if (userSession) {
+      setUserVoteRecords(getUserVotesMap(userSession.id));
+    }
+  }, [userSession]);
 
   // Local vote override store
   const [localVotes, setLocalVotes] = useState<Record<string, Record<string, number>>>(() => {
@@ -138,8 +140,10 @@ export default function App() {
   }, [userSession]);
 
   useEffect(() => {
-    localStorage.setItem('gss_kubwa_user_votes_map', JSON.stringify(userVotes));
-  }, [userVotes]);
+    if (userSession) {
+      saveUserVotesMap(userSession.id, userVoteRecords);
+    }
+  }, [userVoteRecords, userSession]);
 
   useEffect(() => {
     localStorage.setItem('gss_kubwa_local_votes', JSON.stringify(localVotes));
@@ -328,37 +332,126 @@ export default function App() {
     scrollToTop();
   }, [currentPage]);
 
-  // Handle Voting
+  // Handle Voting (Supports 24-hour Revocation & Changing)
   const handleVote = async (studentId: string, categoryId: string) => {
     if (!userSession) {
       setIsAuthOpen(true);
       return;
     }
 
-    const currentStudentVotes = userVotes[studentId] || {};
-    if (currentStudentVotes[categoryId]) {
-      alert("You have already voted for this category on this student!");
+    const config = getVotingConfig();
+    const activeCheck = isVotingActive(config);
+    if (!activeCheck.active) {
+      alert(`🔒 Voting Closed: ${activeCheck.reason}`);
       return;
     }
 
-    setLocalVotes(prev => {
-      const studentLocal = prev[studentId] || {};
-      return {
-        ...prev,
-        [studentId]: {
-          ...studentLocal,
-          [categoryId]: (studentLocal[categoryId] || 0) + 1
-        }
-      };
-    });
+    const targetStudent = students.find(s => s.id === studentId);
+    const targetName = targetStudent?.fullName || 'this graduate';
 
-    setUserVotes(prev => ({
+    const existingVote = userVoteRecords[categoryId];
+
+    if (existingVote) {
+      const voteAgeMs = Date.now() - existingVote.timestamp;
+      const isWithin24h = voteAgeMs <= 24 * 60 * 60 * 1000;
+
+      // CASE A: User clicked to REVOKE vote on the SAME student
+      if (existingVote.studentId === studentId) {
+        if (!isWithin24h) {
+          alert("⚠️ Vote Locked: Your vote in this category was cast over 24 hours ago and can no longer be revoked.");
+          return;
+        }
+
+        // Revoke! Decrement local vote count
+        setLocalVotes(prev => ({
+          ...prev,
+          [studentId]: {
+            ...(prev[studentId] || {}),
+            [categoryId]: Math.max(0, (prev[studentId]?.[categoryId] || 0) - 1)
+          }
+        }));
+
+        const updatedRecords = { ...userVoteRecords };
+        delete updatedRecords[categoryId];
+        setUserVoteRecords(updatedRecords);
+        saveUserVotesMap(userSession.id, updatedRecords);
+
+        try {
+          const studentRef = doc(db, 'students', studentId);
+          await updateDoc(studentRef, {
+            [`votes.${categoryId}`]: increment(-1)
+          });
+          const voteDocId = `${userSession.id}_${categoryId}`;
+          await deleteDoc(doc(db, 'user_votes', voteDocId));
+        } catch (err) {
+          console.warn("Firestore vote revocation saved locally:", err);
+        }
+
+        alert(`✅ Vote Revoked: Your vote for ${targetName} in this category has been canceled. You can now vote again whenever you wish!`);
+        return;
+      } else {
+        // CASE B: User clicked to CHANGE vote to a DIFFERENT student
+        if (!isWithin24h) {
+          alert("⚠️ Vote Locked: Your previous vote in this category was cast over 24 hours ago and cannot be changed.");
+          return;
+        }
+
+        const oldStudentId = existingVote.studentId;
+
+        // Decrement old student, increment new student
+        setLocalVotes(prev => ({
+          ...prev,
+          [oldStudentId]: {
+            ...(prev[oldStudentId] || {}),
+            [categoryId]: Math.max(0, (prev[oldStudentId]?.[categoryId] || 0) - 1)
+          },
+          [studentId]: {
+            ...(prev[studentId] || {}),
+            [categoryId]: (prev[studentId]?.[categoryId] || 0) + 1
+          }
+        }));
+
+        const newRecord = { studentId, studentName: targetName, timestamp: Date.now() };
+        const updatedRecords = { ...userVoteRecords, [categoryId]: newRecord };
+        setUserVoteRecords(updatedRecords);
+        saveUserVotesMap(userSession.id, updatedRecords);
+
+        try {
+          await updateDoc(doc(db, 'students', oldStudentId), {
+            [`votes.${categoryId}`]: increment(-1)
+          });
+          await updateDoc(doc(db, 'students', studentId), {
+            [`votes.${categoryId}`]: increment(1)
+          });
+          const voteDocId = `${userSession.id}_${categoryId}`;
+          await setDoc(doc(db, 'user_votes', voteDocId), {
+            userId: userSession.id,
+            studentId,
+            categoryId,
+            timestamp: new Date().toISOString()
+          });
+        } catch (err) {
+          console.warn("Firestore vote change saved locally:", err);
+        }
+
+        alert(`🎉 Vote Changed: Your vote in this category has been transferred to ${targetName}!`);
+        return;
+      }
+    }
+
+    // CASE C: FIRST TIME VOTE in this category
+    setLocalVotes(prev => ({
       ...prev,
       [studentId]: {
         ...(prev[studentId] || {}),
-        [categoryId]: true
+        [categoryId]: (prev[studentId]?.[categoryId] || 0) + 1
       }
     }));
+
+    const newRecord = { studentId, studentName: targetName, timestamp: Date.now() };
+    const updatedRecords = { ...userVoteRecords, [categoryId]: newRecord };
+    setUserVoteRecords(updatedRecords);
+    saveUserVotesMap(userSession.id, updatedRecords);
 
     try {
       const studentRef = doc(db, 'students', studentId);
@@ -366,7 +459,7 @@ export default function App() {
         [`votes.${categoryId}`]: increment(1)
       });
 
-      const voteDocId = `${userSession.id}_${studentId}_${categoryId}`;
+      const voteDocId = `${userSession.id}_${categoryId}`;
       await setDoc(doc(db, 'user_votes', voteDocId), {
         userId: userSession.id,
         studentId,
@@ -374,8 +467,10 @@ export default function App() {
         timestamp: new Date().toISOString()
       });
     } catch (err) {
-      console.warn("Firestore vote update saved locally:", err);
+      console.warn("Firestore vote cast saved locally:", err);
     }
+
+    alert(`🎉 Vote Cast: You voted for ${targetName}! You can change or revoke this vote within 24 hours if you wish.`);
   };
 
   // Comments handlers
@@ -728,7 +823,7 @@ export default function App() {
                 handleTabChange('halloffame');
                 setSelectedCategory(catId);
               }}
-              userVotesMap={userVotes[loggedInStudent.id] || {}}
+              userVotesMap={userVoteRecords}
               showClassmates={showClassmates}
               setShowClassmates={setShowClassmates}
             />
@@ -927,7 +1022,7 @@ export default function App() {
             student={selectedStudent}
             userSession={userSession}
             comments={comments.filter(c => c.studentId === selectedStudent.id)}
-            userVotesMap={userVotes[selectedStudent.id] || {}}
+            userVotesMap={userVoteRecords}
             onClose={() => setSelectedStudent(null)}
             onVote={(catId) => handleVote(selectedStudent.id, catId)}
             onAddComment={(text) => handleAddComment(selectedStudent.id, text)}

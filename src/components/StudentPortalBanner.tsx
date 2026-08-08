@@ -3,12 +3,13 @@ import { motion } from 'framer-motion';
 import { User, Edit2, Clock, CheckCircle, Award, Sparkles, Eye, EyeOff, Lock } from 'lucide-react';
 import { Student, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
+import { UserVotesMap } from '../utils/votingSystem';
 
 interface StudentPortalBannerProps {
   student: Student;
   onEditProfile: () => void;
   onSelectCategoryVote: (catId: string) => void;
-  userVotesMap: Record<string, boolean>;
+  userVotesMap: UserVotesMap | Record<string, boolean>;
   showClassmates: boolean;
   setShowClassmates: (show: boolean) => void;
 }

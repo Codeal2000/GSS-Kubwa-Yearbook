@@ -3,11 +3,13 @@ import { motion } from 'framer-motion';
 import { 
   X, ShieldCheck, Plus, Trash2, Edit2, Star, Search, 
   MessageSquare, Users, Image as ImageIcon, Save, Check, Upload, Clock, CheckCircle, XCircle, FileArchive, RefreshCw,
-  ChevronDown, ChevronUp, Eye, Info
+  ChevronDown, ChevronUp, Eye, Info, Award
 } from 'lucide-react';
 import JSZip from 'jszip';
 import { Student, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { convertFileToWebp, ensureWebpFilename } from '../utils/imageUtils';
+import { uploadStudentPhotoToStorage } from '../lib/supabase';
+import { getVotingConfig, saveVotingConfig } from '../utils/votingSystem';
 
 interface AdminPanelModalProps {
   students: Student[];
@@ -32,8 +34,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   onApproveComment,
   onToggleFeatured,
 }) => {
-  const [activeTab, setActiveTab] = useState<'approvals' | 'featured' | 'students' | 'add' | 'bulkPhotos' | 'comments'>('approvals');
+  const [activeTab, setActiveTab] = useState<'approvals' | 'featured' | 'students' | 'add' | 'bulkPhotos' | 'comments' | 'votingControls'>('approvals');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Voting Controls State
+  const [votingClosed, setVotingClosed] = useState(() => getVotingConfig().isVotingClosed);
+  const [votingDeadline, setVotingDeadline] = useState(() => getVotingConfig().votingDeadline);
+  const [votingSaveMessage, setVotingSaveMessage] = useState('');
 
   // Bulk ZIP State
   const [zipProcessing, setZipProcessing] = useState(false);
@@ -360,6 +367,17 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             }`}
           >
             <MessageSquare className="w-4 h-4 text-emerald-600" /> Comments ({comments.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('votingControls')}
+            className={`py-3 px-4 font-bold text-xs border-b-2 transition flex items-center gap-1.5 whitespace-nowrap ${
+              activeTab === 'votingControls'
+                ? 'border-emerald-600 text-emerald-900 bg-white'
+                : 'border-transparent text-slate-600 hover:text-emerald-900'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-500" /> Voting Settings
           </button>
         </div>
 
@@ -811,9 +829,10 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                                         if (file) {
                                           try {
                                             const webpDataUrl = await convertFileToWebp(file);
-                                            setEditPhoto(webpDataUrl);
+                                            const finalUrl = await uploadStudentPhotoToStorage(file, webpDataUrl);
+                                            setEditPhoto(finalUrl);
                                           } catch (err) {
-                                            console.error("Failed to convert image:", err);
+                                            console.error("Failed to convert/upload image:", err);
                                           }
                                         }
                                       }}
@@ -979,12 +998,15 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                           if (file) {
                             try {
                               const webpDataUrl = await convertFileToWebp(file);
-                              setAddPhoto(webpDataUrl);
+                              const finalUrl = await uploadStudentPhotoToStorage(file, webpDataUrl);
+                              setAddPhoto(finalUrl);
                             } catch {
                               const reader = new FileReader();
-                              reader.onload = (uploadEvent) => {
+                              reader.onload = async (uploadEvent) => {
                                 if (uploadEvent.target?.result) {
-                                  setAddPhoto(uploadEvent.target.result as string);
+                                  const dataUrl = uploadEvent.target.result as string;
+                                  const finalUrl = await uploadStudentPhotoToStorage(file, dataUrl);
+                                  setAddPhoto(finalUrl);
                                 }
                               };
                               reader.readAsDataURL(file);
@@ -1068,6 +1090,86 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* TAB 5: VOTING CONTROL SETTINGS */}
+          {activeTab === 'votingControls' && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+              <div>
+                <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-500" /> Peer Award Voting Controls
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Manage voting duration, set closing deadlines, or close access across all categories. Voters have 24 hours from casting a vote to revoke or change it.
+                </p>
+              </div>
+
+              {votingSaveMessage && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{votingSaveMessage}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">Close Voting Across All Categories</h4>
+                    <p className="text-xs text-slate-500">
+                      When enabled, all voting and vote modifications are suspended across the entire platform.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setVotingClosed(!votingClosed)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      votingClosed
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    }`}
+                  >
+                    {votingClosed ? '🔒 Voting Closed' : '✅ Voting Active'}
+                  </button>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
+                  <label className="block text-sm font-bold text-slate-900">
+                    Set Voting Deadline (Automatic Closure)
+                  </label>
+                  <p className="text-xs text-slate-500">
+                    Optionally pick a deadline. Once this date and time passes, voting will close automatically.
+                  </p>
+                  <input
+                    type="datetime-local"
+                    value={votingDeadline}
+                    onChange={(e) => setVotingDeadline(e.target.value)}
+                    className="px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  />
+                  {votingDeadline && (
+                    <p className="text-[11px] text-amber-700 font-medium">
+                      Voting deadline set for: {new Date(votingDeadline).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveVotingConfig({
+                        isVotingClosed: votingClosed,
+                        votingDeadline: votingDeadline
+                      });
+                      setVotingSaveMessage('Voting controls updated and published successfully!');
+                      setTimeout(() => setVotingSaveMessage(''), 4000);
+                    }}
+                    className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl transition flex items-center gap-2 shadow-md shadow-emerald-900/10 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" /> Save Voting Settings
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
