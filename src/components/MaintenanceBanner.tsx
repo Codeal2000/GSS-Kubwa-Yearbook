@@ -24,19 +24,19 @@ export const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({ onAdminLog
             <div className="space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="px-3 py-0.5 bg-amber-900/60 text-amber-200 border border-amber-300/40 rounded-full text-[10px] font-black tracking-widest uppercase flex items-center gap-1 shadow-sm">
-                  <Server className="w-3 h-3 text-amber-300" /> System Notice & Database Migration
+                  <Server className="w-3 h-3 text-amber-300" /> System Notice & Infrastructure Upgrade
                 </span>
                 <span className="px-2.5 py-0.5 bg-emerald-950/70 text-emerald-300 rounded-full text-[10px] font-bold">
-                  Supabase Upgrade in Progress
+                  System Upgrade in Progress
                 </span>
               </div>
 
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
-                Temporary Platform Pause — Migration to Supabase
+                Temporary Platform Pause — Infrastructure Upgrade
               </h2>
 
               <p className="text-xs sm:text-sm text-amber-50/95 font-medium max-w-3xl leading-relaxed">
-                We are currently upgrading our cloud backend from Firebase Firestore to <strong className="text-amber-200">Supabase</strong> to handle unlimited high-speed traffic, instant media delivery, and higher concurrent voting for the GSS Kubwa 2026 Yearbook. Public access and voting are temporarily paused while database models are synced.
+                We are currently migrating to a more robust cloud infrastructure to serve you better with faster load speeds, instant image rendering, and smooth voting for the GSS Kubwa 2026 Yearbook. Interactive features are temporarily paused while systems are being upgraded.
               </p>
             </div>
           </div>
@@ -49,7 +49,7 @@ export const MaintenanceBanner: React.FC<MaintenanceBannerProps> = ({ onAdminLog
                 <span>Backend Sync Status</span>
               </div>
               <p className="text-[11px] text-amber-50/80">
-                All uploaded photos & profiles are safely queued for Supabase import.
+                All uploaded photos & student profiles are safe and queued for sync.
               </p>
             </div>
 
