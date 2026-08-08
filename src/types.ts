@@ -130,11 +130,32 @@ export function getStudentPhotoUrl(photoFilename?: string): string {
   if (clean.startsWith('photos/')) {
     clean = clean.replace(/^photos\//, '');
   }
-  return `/photos/${clean}`;
+  const nameWithoutExt = clean.replace(/\.(jpe?g|png|webp|jfif|gif|svg)$/i, '');
+  return `/photos/${nameWithoutExt || clean}.webp`;
 }
 
 export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {
   const target = e.currentTarget;
+  const currentSrc = target.src;
+  const tried = target.dataset.fallbackTried;
+
+  if (!tried) {
+    if (currentSrc.endsWith('.webp')) {
+      target.dataset.fallbackTried = 'jpg';
+      target.src = currentSrc.replace(/\.webp$/i, '.jpg');
+      return;
+    }
+    if (currentSrc.endsWith('.jpg') || currentSrc.endsWith('.jpeg')) {
+      target.dataset.fallbackTried = 'png';
+      target.src = currentSrc.replace(/\.(jpg|jpeg)$/i, '.png');
+      return;
+    }
+  } else if (tried === 'jpg') {
+    target.dataset.fallbackTried = 'png';
+    target.src = currentSrc.replace(/\.jpg$/i, '.png');
+    return;
+  }
+
   target.onerror = null;
   target.src = generateInitialsAvatar(fullName);
 }

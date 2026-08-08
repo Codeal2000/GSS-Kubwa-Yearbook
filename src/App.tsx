@@ -702,11 +702,16 @@ export default function App() {
         ) : (
           <>
             {/* Student Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className={
+              activeTab === 'featured'
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                : "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"
+            }>
               <AnimatePresence mode="popLayout">
                 {paginatedStudents.map((student, index) => {
                   const totalVotes = getTotalStudentVotes(student);
                   const globalRank = activeTab === 'halloffame' ? (currentPage - 1) * itemsPerPage + index + 1 : undefined;
+                  const isSpotlight = student.featuredOnHome || activeTab === 'featured';
 
                   return (
                     <motion.div
@@ -717,12 +722,21 @@ export default function App() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.15 }}
                     >
-                      <StudentCard
-                        student={student}
-                        totalVotes={totalVotes}
-                        rank={globalRank}
-                        onSelect={setSelectedStudent}
-                      />
+                      {isSpotlight ? (
+                        <SpotlightCard
+                          student={student}
+                          totalVotes={totalVotes}
+                          onSelect={setSelectedStudent}
+                          isCompact={activeTab !== 'featured'}
+                        />
+                      ) : (
+                        <StudentCard
+                          student={student}
+                          totalVotes={totalVotes}
+                          rank={globalRank}
+                          onSelect={setSelectedStudent}
+                        />
+                      )}
                     </motion.div>
                   );
                 })}
