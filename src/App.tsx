@@ -758,7 +758,7 @@ export default function App() {
 
       {/* Modern Multi-Column Light BBC-Style Footer */}
       <footer className="bg-white border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 mt-auto text-xs text-slate-700 shadow-sm">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -783,15 +783,6 @@ export default function App() {
           </div>
 
           <div>
-            <h4 className="font-black text-slate-950 uppercase text-[11px] tracking-wider mb-3">Graduation Highlights</h4>
-            <div className="space-y-1.5 text-[11px] font-semibold text-slate-700">
-              <p>📍 Location: GSS Kubwa Campus, Abuja</p>
-              <p>🎓 Class Count: {students.length} Registered Graduates</p>
-              <p>🏆 Award Categories: 12 Peer Award Titles</p>
-            </div>
-          </div>
-
-          <div>
             <h4 className="font-black text-slate-950 uppercase text-[11px] tracking-wider mb-3">Student Access</h4>
             <p className="text-[11px] font-medium leading-relaxed text-slate-700 mb-3">
               Log in with your official Exam Number and Date of Birth to sign yearbooks, submit profile updates, and cast peer award votes.
@@ -812,7 +803,7 @@ export default function App() {
             <p>
               Built by{' '}
               <a
-                href="https://github.com/Codeal2000"
+                href="https://codeal.tech.blog/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-emerald-800 hover:text-emerald-950 font-black hover:underline transition"

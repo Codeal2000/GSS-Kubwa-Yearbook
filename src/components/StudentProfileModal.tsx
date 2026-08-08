@@ -36,23 +36,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [activeTab, setActiveTab] = useState<'profile' | 'voting' | 'comments'>('profile');
   const [commentText, setCommentText] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [copiedBio, setCopiedBio] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [updateFeedback, setUpdateFeedback] = useState('');
   const [commentFeedback, setCommentFeedback] = useState('');
-
-  const handleCopyBio = () => {
-    const bioText = `🎓 ${student.fullName} - GSS Kubwa Class of 2026
-🎂 Birthday: ${student.birthDate}
-💼 Career Goal: ${student.careerPath || 'Not specified'}
-💬 Quote: "${student.quote || 'Empowered to excel!'}"
-❤️ Passions: ${student.hobbies || 'Not specified'}
-${student.bestMemory ? `✨ Best Memory: ${student.bestMemory}` : ''}`;
-
-    navigator.clipboard.writeText(bioText);
-    setCopiedBio(true);
-    setTimeout(() => setCopiedBio(false), 2500);
-  };
 
   const handlePrintScreenshot = () => {
     window.print();
@@ -212,17 +198,8 @@ ${student.bestMemory ? `✨ Best Memory: ${student.bestMemory}` : ''}`;
             </div>
           </div>
 
-          {/* Action Buttons: Share, Copy Bio, Print/Screenshot, & Edit */}
+          {/* Action Buttons: Print/Screenshot & Edit */}
           <div className="flex flex-wrap items-center justify-end gap-2 mt-4 pt-3 border-t border-emerald-800/80">
-            <button
-              onClick={handleCopyBio}
-              className="px-3 py-1.5 bg-emerald-800/90 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-700 shadow-sm"
-              title="Copy Profile Text to Clipboard"
-            >
-              {copiedBio ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5 text-emerald-300" />}
-              {copiedBio ? 'Bio Copied!' : 'Copy Bio'}
-            </button>
-
             <button
               onClick={handlePrintScreenshot}
               className="px-3 py-1.5 bg-emerald-800/90 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-emerald-700 shadow-sm"
