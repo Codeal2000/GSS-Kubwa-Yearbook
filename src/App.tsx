@@ -18,7 +18,7 @@ import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
   GraduationCap, Trophy, Users, Star, 
   Award, Search, Filter, ShieldCheck, Check,
-  ArrowRight, ChevronRight, ChevronLeft, Lock, Sparkles, Copy, Camera
+  ArrowRight, ChevronRight, ChevronLeft, Lock, Copy, Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -574,7 +574,7 @@ export default function App() {
                   <div className="flex items-center justify-between border-b border-amber-200/60 pb-3">
                     <div className="flex items-center gap-2">
                       <div className="p-1.5 bg-amber-500 text-slate-950 rounded-xl shadow-sm">
-                        <Sparkles className="w-4 h-4" />
+                        <Award className="w-4 h-4" />
                       </div>
                       <div>
                         <h3 className="font-extrabold text-xs sm:text-sm text-slate-950 tracking-wide">

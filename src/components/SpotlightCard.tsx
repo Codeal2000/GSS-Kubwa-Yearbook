@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Calendar, Briefcase, TrendingUp, Quote, Heart, Award } from 'lucide-react';
+import { Calendar, Briefcase, TrendingUp, Quote, Heart, Award, Star } from 'lucide-react';
 import { Student, getStudentPhotoUrl, handleStudentImageError } from '../types';
 
 interface SpotlightCardProps {
@@ -24,7 +24,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
         {/* Glow Tag */}
         <div className="flex items-center justify-between mb-3">
           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] tracking-wider uppercase shadow-sm">
-            <Sparkles className="w-3 h-3 text-slate-950 animate-pulse" />
+            <Award className="w-3 h-3 text-slate-950" />
             Spotlight
           </span>
           <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -81,7 +81,7 @@ export const SpotlightCard: React.FC<SpotlightCardProps> = ({
     >
       {/* Top Banner Tag */}
       <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider px-3.5 py-1 rounded-bl-2xl shadow-sm flex items-center gap-1.5 z-10">
-        <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-bounce" />
+        <Award className="w-3.5 h-3.5 text-slate-950" />
         Featured Spotlight
       </div>
 
