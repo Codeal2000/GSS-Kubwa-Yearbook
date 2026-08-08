@@ -25,7 +25,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [examNumberInput, setExamNumberInput] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
   const [studentError, setStudentError] = useState('');
-  const [showSampleCredentials, setShowSampleCredentials] = useState(false);
 
   const handleAdminSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +72,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setStudentError('Invalid Exam Number or Date of Birth. Please check your official registration credentials.');
     }
   };
-
-  const sampleStudents = students.slice(0, 5);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
@@ -170,7 +167,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. GSS/KUB/2026/001"
+                    placeholder="e.g. 4020204XXX"
                     value={examNumberInput}
                     onChange={(e) => setExamNumberInput(e.target.value)}
                     className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 font-mono"
@@ -187,7 +184,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. 15 March"
+                    placeholder="e.g. 2 November"
                     value={birthDateInput}
                     onChange={(e) => setBirthDateInput(e.target.value)}
                     className="w-full pl-10 pr-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
@@ -201,38 +198,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               >
                 Log In to Student Account
               </button>
-
-              {/* Sample Credentials Helper Accordion */}
-              <div className="pt-2 border-t border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setShowSampleCredentials(!showSampleCredentials)}
-                  className="w-full text-left text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center justify-between py-1"
-                >
-                  <span>Need help finding exam credentials?</span>
-                  {showSampleCredentials ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                </button>
-
-                {showSampleCredentials && (
-                  <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-[10px] text-slate-700">
-                    <p className="font-bold text-slate-500 text-[10px] uppercase">Sample Student Credentials:</p>
-                    {sampleStudents.map(s => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          setExamNumberInput(s.examNumber);
-                          setBirthDateInput(s.birthDate);
-                        }}
-                        className="w-full text-left p-1.5 hover:bg-emerald-50 rounded border border-transparent hover:border-emerald-200 flex items-center justify-between font-mono"
-                      >
-                        <span className="truncate font-semibold text-slate-900">{s.fullName}</span>
-                        <span className="text-emerald-700 shrink-0 ml-2">{s.examNumber} ({s.birthDate})</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
             </form>
           ) : (
             /* ADMIN AUTH FORM */

@@ -140,8 +140,14 @@ export function getStudentPhotoUrl(photoFilename?: string): string {
 
 export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement, Event>, fullName: string): void {
   const target = e.currentTarget;
-  const currentSrc = target.src;
+  const currentSrc = target.src || '';
   const tried = target.dataset.fallbackTried;
+
+  if (currentSrc.startsWith('data:')) {
+    target.onerror = null;
+    target.src = generateInitialsAvatar(fullName);
+    return;
+  }
 
   if (!tried) {
     if (currentSrc.endsWith('.webp')) {

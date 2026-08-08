@@ -14,6 +14,7 @@ import { AuthModal } from './components/AuthModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { Pagination } from './components/Pagination';
 import { SuperlativeIcon } from './components/SuperlativeIcon';
+import { StudentPortalBanner } from './components/StudentPortalBanner';
 import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
   GraduationCap, Trophy, Users, Star, 
@@ -102,6 +103,30 @@ export default function App() {
     }
   });
 
+  // Student Portal Classmates Visibility Toggle
+  const [showClassmates, setShowClassmates] = useState(false);
+
+  // Student Local Storage Persistent Overrides (Guarantees zero data loss across AI Studio restarts/commits)
+  const getLocalStudentOverrides = (): Record<string, Partial<Student>> => {
+    try {
+      const saved = localStorage.getItem('gss_kubwa_student_overrides');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const applyStudentOverrides = (rawStudents: Student[]): Student[] => {
+    const overrides = getLocalStudentOverrides();
+    if (!overrides || Object.keys(overrides).length === 0) return rawStudents;
+    return rawStudents.map(s => {
+      if (overrides[s.id]) {
+        return { ...s, ...overrides[s.id] };
+      }
+      return s;
+    });
+  };
+
   // Save session & votes
   useEffect(() => {
     if (userSession) {
@@ -146,16 +171,16 @@ export default function App() {
               pendingProfileUpdate: data.pendingProfileUpdate || undefined
             };
           });
-          setStudents(studentList);
+          setStudents(applyStudentOverrides(studentList));
         } else {
           const initial = getInitialStudents();
-          setStudents(initial);
+          setStudents(applyStudentOverrides(initial));
           seedStudentsToFirestore().catch(err => console.warn("Background seed notice:", err));
         }
         setLoading(false);
       }, (err) => {
         console.warn("Firestore offline or restricted, using local 714 graduate dataset:", err);
-        setStudents(getInitialStudents());
+        setStudents(applyStudentOverrides(getInitialStudents()));
         setLoading(false);
       });
 
@@ -248,7 +273,9 @@ export default function App() {
           return catB - catA;
         }
         return getTotalStudentVotes(b) - getTotalStudentVotes(a);
-      }).slice(0, 30);
+      });
+      const limit = selectedCategory === 'all' ? 1 : 2;
+      list = list.slice(0, limit);
     }
 
     return list;
@@ -411,6 +438,16 @@ export default function App() {
     if (selectedStudent && selectedStudent.id === id) {
       setSelectedStudent(prev => prev ? { ...prev, ...updatedData } : null);
     }
+
+    // Save persistent local overrides cache to prevent data loss on commits/reloads
+    try {
+      const overrides = getLocalStudentOverrides();
+      overrides[id] = { ...(overrides[id] || {}), ...updatedData };
+      localStorage.setItem('gss_kubwa_student_overrides', JSON.stringify(overrides));
+    } catch (err) {
+      console.warn("LocalStorage student override save failed:", err);
+    }
+
     try {
       const firestorePayload: Record<string, any> = {};
       Object.entries(updatedData).forEach(([key, val]) => {
@@ -675,16 +712,58 @@ export default function App() {
 
       {/* Main Grid View */}
       <main id="graduates-grid" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
-        {/* Status Bar */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-xs font-extrabold text-slate-700">
-            Showing <span className="text-emerald-950 font-black text-sm">{filteredStudents.length}</span> graduates
-            {activeTab === 'birthdays' && ` celebrating on ${currentMonthDay}`}
-            {activeTab === 'featured' && ` featured on home spotlight`}
-          </div>
-        </div>
+        {/* LOGGED IN STUDENT DEDICATED PORTAL VIEW */}
+        {userSession?.role === 'student' && (() => {
+          const loggedInStudent = students.find(s => s.id === userSession.id);
+          if (!loggedInStudent) return null;
+          return (
+            <StudentPortalBanner
+              student={loggedInStudent}
+              onEditProfile={() => setSelectedStudent(loggedInStudent)}
+              onSelectCategoryVote={(catId) => {
+                handleTabChange('halloffame');
+                setSelectedCategory(catId);
+              }}
+              userVotesMap={userVotes[loggedInStudent.id] || {}}
+              showClassmates={showClassmates}
+              setShowClassmates={setShowClassmates}
+            />
+          );
+        })()}
 
-        {loading ? (
+        {userSession?.role === 'student' && !showClassmates && activeTab === 'all' && !searchTerm ? (
+          <div className="bg-emerald-50/80 border border-emerald-200/80 rounded-3xl p-8 text-center max-w-xl mx-auto my-6 shadow-xs">
+            <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3 text-emerald-800">
+              <Users className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-black text-slate-900 mb-1">Classmates Directory Collapsed</h3>
+            <p className="text-slate-600 text-xs font-medium mb-4 leading-relaxed">
+              Your profile is currently centered at the top. Click below to expand and view the full 714 graduates directory.
+            </p>
+            <button
+              onClick={() => setShowClassmates(true)}
+              className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl transition shadow-md shadow-emerald-700/20"
+            >
+              Show All Classmates Directory ({students.length} Graduates)
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Status Bar */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="text-xs font-extrabold text-slate-700">
+                Showing <span className="text-emerald-950 font-black text-sm">{filteredStudents.length}</span> graduates
+                {activeTab === 'birthdays' && ` celebrating on ${currentMonthDay}`}
+                {activeTab === 'featured' && ` featured on home spotlight`}
+                {activeTab === 'halloffame' && (
+                  selectedCategory === 'all'
+                    ? ` (Overall Most Voted Top Candidate)`
+                    : ` (Top 2 Nominees in Selected Category)`
+                )}
+              </div>
+            </div>
+
+            {loading ? (
           <div className="flex flex-col items-center justify-center py-32 gap-3">
             <div className="w-10 h-10 border-4 border-slate-200 border-t-emerald-600 rounded-full animate-spin" />
             <p className="text-slate-600 font-bold text-xs">Loading Yearbook Archives...</p>
@@ -762,7 +841,9 @@ export default function App() {
             />
           </>
         )}
-      </main>
+      </>
+    )}
+  </main>
 
       {/* Modern Multi-Column Light BBC-Style Footer */}
       <footer className="bg-white border-t border-slate-200 py-12 px-4 sm:px-6 lg:px-8 mt-auto text-xs text-slate-700 shadow-sm">
