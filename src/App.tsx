@@ -15,6 +15,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { Pagination } from './components/Pagination';
 import { SuperlativeIcon } from './components/SuperlativeIcon';
 import { StudentPortalBanner } from './components/StudentPortalBanner';
+import { MaintenanceBanner } from './components/MaintenanceBanner';
 import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
   GraduationCap, Trophy, Users, Star, 
@@ -519,6 +520,9 @@ export default function App() {
         totalStudents={students.length}
         pendingApprovalsCount={pendingApprovalsCount}
       />
+
+      {/* Prominent Maintenance & Database Migration Banner */}
+      <MaintenanceBanner onAdminLoginClick={() => setIsAuthOpen(true)} />
 
       {/* Hero / Spotlight Section on First View */}
       {activeTab === 'all' && !searchTerm && (
