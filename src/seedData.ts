@@ -1,5 +1,6 @@
 import { db } from './firebase';
 import { writeBatch, doc } from 'firebase/firestore';
+import { seedStudentsToSupabase } from './lib/supabase';
 
 export interface StudentVotes {
   tech_guru?: number;
@@ -847,10 +848,19 @@ export const seedStudentsToFirestore = async () => {
       await batch.commit();
     }
 
-    console.log(`Final batch committed. Total: ${count} students.`);
+    console.log(`Final Firestore batch committed. Total: ${count} students.`);
+    
+    // Seed Supabase in background
+    seedStudentsToSupabase(getInitialStudents()).catch(err => console.warn("Background Supabase seed notice:", err));
+
     return count;
   } catch (error) {
-    console.error("Error seeding database: ", error);
-    throw error;
+    console.warn("Firestore seed notice (falling back to Supabase and local dataset):", error);
+    try {
+      await seedStudentsToSupabase(getInitialStudents());
+    } catch (sErr) {
+      console.warn("Supabase seed notice:", sErr);
+    }
+    return getInitialStudents().length;
   }
 };

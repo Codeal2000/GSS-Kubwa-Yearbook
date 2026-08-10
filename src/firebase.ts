@@ -14,8 +14,8 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 
-// Set log level to reduce verbose connection warning output
-setLogLevel('error');
+// Set log level to silent to suppress benign offline network notices
+setLogLevel('silent');
 
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,

@@ -4,6 +4,14 @@ import {
   collection, onSnapshot, query, orderBy, doc, 
   updateDoc, increment, setDoc, deleteDoc, addDoc, deleteField 
 } from 'firebase/firestore';
+import { 
+  fetchStudentsFromSupabase, subscribeToStudentsFromSupabase,
+  fetchCommentsFromSupabase, subscribeToCommentsFromSupabase,
+  fetchUserVotesFromSupabase, recordVoteInSupabase, revokeVoteInSupabase,
+  updateStudentVotesInSupabase, addCommentToSupabase, approveCommentInSupabase,
+  deleteCommentFromSupabase, updateStudentInSupabase, addStudentToSupabase,
+  deleteStudentFromSupabase, seedStudentsToSupabase
+} from './lib/supabase';
 import { getInitialStudents, seedStudentsToFirestore } from './seedData';
 import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError, handleLogoImageError } from './types';
 import { getUserVotesMap, saveUserVotesMap, isWithin24Hours, getVotingConfig, isVotingActive, UserVotesMap } from './utils/votingSystem';
@@ -92,7 +100,16 @@ export default function App() {
 
   useEffect(() => {
     if (userSession) {
-      setUserVoteRecords(getUserVotesMap(userSession.id));
+      const localMap = getUserVotesMap(userSession.id);
+      setUserVoteRecords(localMap);
+
+      fetchUserVotesFromSupabase(userSession.id).then(remoteMap => {
+        if (remoteMap && Object.keys(remoteMap).length > 0) {
+          const merged = { ...localMap, ...remoteMap };
+          setUserVoteRecords(merged);
+          saveUserVotesMap(userSession.id, merged);
+        }
+      });
     }
   }, [userSession]);
 
@@ -149,14 +166,61 @@ export default function App() {
     localStorage.setItem('gss_kubwa_local_votes', JSON.stringify(localVotes));
   }, [localVotes]);
 
-  // Load students & comments from Firestore with local dataset fallback
+  // Load students & comments from Supabase (with Firestore/local fallback)
   useEffect(() => {
-    let unsubscribeStudents = () => {};
-    let unsubscribeComments = () => {};
+    let isMounted = true;
 
+    async function loadSupabaseData() {
+      // 1. Fetch Students from Supabase
+      const supabaseStudents = await fetchStudentsFromSupabase();
+      if (isMounted) {
+        if (supabaseStudents && supabaseStudents.length > 0) {
+          setStudents(applyStudentOverrides(supabaseStudents));
+          setLoading(false);
+        } else if (supabaseStudents && supabaseStudents.length === 0) {
+          // Supabase table is empty, seed initial 714 graduates
+          const initial = getInitialStudents();
+          setStudents(applyStudentOverrides(initial));
+          setLoading(false);
+          seedStudentsToSupabase(initial).catch(err => console.warn("Supabase background seed notice:", err));
+        } else {
+          // Supabase offline or initializing, load initial local dataset
+          const initial = getInitialStudents();
+          setStudents(applyStudentOverrides(initial));
+          setLoading(false);
+        }
+      }
+
+      // 2. Fetch Comments from Supabase
+      const supabaseComments = await fetchCommentsFromSupabase();
+      if (isMounted && supabaseComments && supabaseComments.length > 0) {
+        setComments(supabaseComments);
+      }
+    }
+
+    loadSupabaseData();
+
+    // 3. Setup Supabase Realtime Subscriptions
+    const unsubscribeSupabaseStudents = subscribeToStudentsFromSupabase(async () => {
+      const updated = await fetchStudentsFromSupabase();
+      if (isMounted && updated && updated.length > 0) {
+        setStudents(applyStudentOverrides(updated));
+      }
+    });
+
+    const unsubscribeSupabaseComments = subscribeToCommentsFromSupabase(async () => {
+      const updated = await fetchCommentsFromSupabase();
+      if (isMounted && updated) {
+        setComments(updated);
+      }
+    });
+
+    // Redundant Firestore fallback for seamless sync
+    let unsubscribeFirestoreStudents = () => {};
+    let unsubscribeFirestoreComments = () => {};
     try {
       const qStudents = query(collection(db, 'students'), orderBy('fullName'));
-      unsubscribeStudents = onSnapshot(qStudents, (snapshot) => {
+      unsubscribeFirestoreStudents = onSnapshot(qStudents, (snapshot) => {
         if (!snapshot.empty) {
           const studentList: Student[] = snapshot.docs.map(docSnap => {
             const data = docSnap.data();
@@ -176,22 +240,12 @@ export default function App() {
               pendingProfileUpdate: data.pendingProfileUpdate || undefined
             };
           });
-          setStudents(applyStudentOverrides(studentList));
-        } else {
-          const initial = getInitialStudents();
-          setStudents(applyStudentOverrides(initial));
-          seedStudentsToFirestore().catch(err => console.warn("Background seed notice:", err));
+          if (isMounted) setStudents(prev => prev.length === 0 ? applyStudentOverrides(studentList) : prev);
         }
-        setLoading(false);
-      }, (err) => {
-        console.warn("Firestore offline or restricted, using local 714 graduate dataset:", err);
-        setStudents(applyStudentOverrides(getInitialStudents()));
-        setLoading(false);
-      });
+      }, () => {});
 
-      // Load comments
       const qComments = query(collection(db, 'comments'), orderBy('createdAt', 'desc'));
-      unsubscribeComments = onSnapshot(qComments, (snapshot) => {
+      unsubscribeFirestoreComments = onSnapshot(qComments, (snapshot) => {
         if (!snapshot.empty) {
           const commentList: CommentItem[] = snapshot.docs.map(docSnap => {
             const data = docSnap.data();
@@ -206,21 +260,19 @@ export default function App() {
               status: data.status || 'approved'
             };
           });
-          setComments(commentList);
+          if (isMounted) setComments(prev => prev.length === 0 ? commentList : prev);
         }
-      }, (err) => {
-        console.warn("Comments snapshot notice:", err);
-      });
-
-    } catch (err) {
-      console.error("Firestore connection failed:", err);
-      setStudents(getInitialStudents());
-      setLoading(false);
+      }, () => {});
+    } catch {
+      // Ignore if firestore is restricted
     }
 
     return () => {
-      unsubscribeStudents();
-      unsubscribeComments();
+      isMounted = false;
+      unsubscribeSupabaseStudents();
+      unsubscribeSupabaseComments();
+      unsubscribeFirestoreStudents();
+      unsubscribeFirestoreComments();
     };
   }, []);
 
@@ -376,6 +428,10 @@ export default function App() {
         setUserVoteRecords(updatedRecords);
         saveUserVotesMap(userSession.id, updatedRecords);
 
+        // Core query to Supabase
+        revokeVoteInSupabase(userSession.id, categoryId);
+        updateStudentVotesInSupabase(studentId, categoryId, -1);
+
         try {
           const studentRef = doc(db, 'students', studentId);
           await updateDoc(studentRef, {
@@ -384,7 +440,7 @@ export default function App() {
           const voteDocId = `${userSession.id}_${categoryId}`;
           await deleteDoc(doc(db, 'user_votes', voteDocId));
         } catch (err) {
-          console.warn("Firestore vote revocation saved locally:", err);
+          console.warn("Firestore vote revocation notice:", err);
         }
 
         alert(`✅ Vote Revoked: Your vote for ${targetName} in this category has been canceled. You can now vote again whenever you wish!`);
@@ -416,6 +472,12 @@ export default function App() {
         setUserVoteRecords(updatedRecords);
         saveUserVotesMap(userSession.id, updatedRecords);
 
+        // Core queries to Supabase
+        revokeVoteInSupabase(userSession.id, categoryId);
+        recordVoteInSupabase(userSession.id, studentId, categoryId, targetName);
+        updateStudentVotesInSupabase(oldStudentId, categoryId, -1);
+        updateStudentVotesInSupabase(studentId, categoryId, 1);
+
         try {
           await updateDoc(doc(db, 'students', oldStudentId), {
             [`votes.${categoryId}`]: increment(-1)
@@ -431,7 +493,7 @@ export default function App() {
             timestamp: new Date().toISOString()
           });
         } catch (err) {
-          console.warn("Firestore vote change saved locally:", err);
+          console.warn("Firestore vote change notice:", err);
         }
 
         alert(`🎉 Vote Changed: Your vote in this category has been transferred to ${targetName}!`);
@@ -453,6 +515,10 @@ export default function App() {
     setUserVoteRecords(updatedRecords);
     saveUserVotesMap(userSession.id, updatedRecords);
 
+    // Core query to Supabase
+    recordVoteInSupabase(userSession.id, studentId, categoryId, targetName);
+    updateStudentVotesInSupabase(studentId, categoryId, 1);
+
     try {
       const studentRef = doc(db, 'students', studentId);
       await updateDoc(studentRef, {
@@ -467,7 +533,7 @@ export default function App() {
         timestamp: new Date().toISOString()
       });
     } catch (err) {
-      console.warn("Firestore vote cast saved locally:", err);
+      console.warn("Firestore vote cast notice:", err);
     }
 
     alert(`🎉 Vote Cast: You voted for ${targetName}! You can change or revoke this vote within 24 hours if you wish.`);
@@ -495,6 +561,16 @@ export default function App() {
 
     setComments(prev => [newComment, ...prev]);
 
+    // Core query to Supabase
+    addCommentToSupabase({
+      studentId,
+      authorId: userSession.id,
+      authorName: userSession.fullName,
+      authorRole: userSession.role,
+      text,
+      status
+    });
+
     try {
       await addDoc(collection(db, 'comments'), {
         studentId,
@@ -506,25 +582,33 @@ export default function App() {
         createdAt: new Date().toISOString()
       });
     } catch (e) {
-      console.warn("Firestore comment saved locally:", e);
+      console.warn("Firestore comment notice:", e);
     }
   };
 
   const handleApproveComment = async (commentId: string) => {
     setComments(prev => prev.map(c => c.id === commentId ? { ...c, status: 'approved' } : c));
+    
+    // Core query to Supabase
+    approveCommentInSupabase(commentId);
+
     try {
       await updateDoc(doc(db, 'comments', commentId), { status: 'approved' });
     } catch (e) {
-      console.warn("Firestore comment approval:", e);
+      console.warn("Firestore comment approval notice:", e);
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
     setComments(prev => prev.filter(c => c.id !== commentId));
+
+    // Core query to Supabase
+    deleteCommentFromSupabase(commentId);
+
     try {
       await deleteDoc(doc(db, 'comments', commentId));
     } catch (e) {
-      console.warn("Firestore comment deletion:", e);
+      console.warn("Firestore comment deletion notice:", e);
     }
   };
 
@@ -544,6 +628,9 @@ export default function App() {
       console.warn("LocalStorage student override save failed:", err);
     }
 
+    // Core query to Supabase
+    updateStudentInSupabase(id, updatedData);
+
     try {
       const firestorePayload: Record<string, any> = {};
       Object.entries(updatedData).forEach(([key, val]) => {
@@ -555,7 +642,7 @@ export default function App() {
       });
       await updateDoc(doc(db, 'students', id), firestorePayload);
     } catch (e) {
-      console.warn("Firestore update:", e);
+      console.warn("Firestore update notice:", e);
     }
   };
 
@@ -578,20 +665,27 @@ export default function App() {
 
     setStudents(prev => [fullStudent, ...prev]);
 
+    // Core query to Supabase
+    addStudentToSupabase(fullStudent);
+
     try {
       await setDoc(doc(db, 'students', id), fullStudent);
     } catch (e) {
-      console.warn("Firestore create:", e);
+      console.warn("Firestore create notice:", e);
     }
   };
 
   const handleDeleteStudent = async (id: string) => {
     setStudents(prev => prev.filter(s => s.id !== id));
     if (selectedStudent?.id === id) setSelectedStudent(null);
+
+    // Core query to Supabase
+    deleteStudentFromSupabase(id);
+
     try {
       await deleteDoc(doc(db, 'students', id));
     } catch (e) {
-      console.warn("Firestore delete:", e);
+      console.warn("Firestore delete notice:", e);
     }
   };
 
