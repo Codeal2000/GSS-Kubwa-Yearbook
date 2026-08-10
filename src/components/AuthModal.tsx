@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { X, ShieldCheck, UserCheck, Key, Lock, Calendar, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Student, UserSession } from '../types';
+import { supabase } from '../lib/supabase';
 
 interface AuthModalProps {
   students: Student[];
@@ -26,8 +27,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [birthDateInput, setBirthDateInput] = useState('');
   const [studentError, setStudentError] = useState('');
 
-  const handleAdminSubmit = (e: React.FormEvent) => {
+  const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAdminError('');
+
+    try {
+      if (supabase) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: adminEmail,
+          password: adminPassword,
+        });
+
+        if (!error && data?.user) {
+          onLogin({
+            id: data.user.id,
+            fullName: data.user.user_metadata?.full_name || 'Yearbook Administrator',
+            role: 'admin',
+            email: data.user.email || adminEmail,
+          });
+          onClose();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Supabase Auth admin login notice:", err);
+    }
+
     if (adminEmail === 'admin@gsskubwa.edu.ng' && adminPassword === 'admin2026') {
       onLogin({
         id: 'admin_root',

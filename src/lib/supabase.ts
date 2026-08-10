@@ -292,7 +292,18 @@ export async function updateStudentVotesInSupabase(
 ): Promise<boolean> {
   if (!supabase) return false;
   try {
-    // Get current votes
+    // Try atomic RPC function first to avoid race conditions under concurrent votes
+    const { error: rpcError } = await supabase.rpc('vote_for_student', {
+      p_student_id: studentId,
+      p_category_id: categoryId,
+      p_delta: delta
+    });
+
+    if (!rpcError) {
+      return true;
+    }
+
+    // Fallback if RPC function is not installed in database
     const { data, error } = await supabase
       .from('students')
       .select('votes')
@@ -433,9 +444,9 @@ export async function updateStudentInSupabase(id: string, updatedData: Partial<S
       payload.featuredOnHome = updatedData.featuredOnHome;
       payload.featured_on_home = updatedData.featuredOnHome;
     }
-    if (updatedData.pendingProfileUpdate !== undefined) {
-      payload.pendingProfileUpdate = updatedData.pendingProfileUpdate;
-      payload.pending_profile_update = updatedData.pendingProfileUpdate;
+    if ('pendingProfileUpdate' in updatedData) {
+      payload.pendingProfileUpdate = updatedData.pendingProfileUpdate || null;
+      payload.pending_profile_update = updatedData.pendingProfileUpdate || null;
     }
 
     const { error } = await supabase

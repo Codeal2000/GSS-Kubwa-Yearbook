@@ -118,7 +118,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         });
 
         if (target) {
-          onUpdateStudent(target.id, { photoFilename: webpDataUrl });
+          onUpdateStudent(target.id, { photoFilename: webpDataUrl, pendingProfileUpdate: undefined });
           matchedCount++;
         } else {
           // Index fallback if name is a pure number (e.g., 1.jpg -> student 1)
@@ -126,7 +126,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
           if (!isNaN(num) && num >= 1 && num <= students.length) {
             const studentByIdx = students[num - 1];
             if (studentByIdx) {
-              onUpdateStudent(studentByIdx.id, { photoFilename: webpDataUrl });
+              onUpdateStudent(studentByIdx.id, { photoFilename: webpDataUrl, pendingProfileUpdate: undefined });
               matchedCount++;
             }
           }
@@ -164,14 +164,14 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       });
 
       if (target) {
-        onUpdateStudent(target.id, { photoFilename: webpDataUrl });
+        onUpdateStudent(target.id, { photoFilename: webpDataUrl, pendingProfileUpdate: undefined });
         matchedCount++;
       } else {
         const num = parseInt(nameWithoutExt, 10);
         if (!isNaN(num) && num >= 1 && num <= students.length) {
           const studentByIdx = students[num - 1];
           if (studentByIdx) {
-            onUpdateStudent(studentByIdx.id, { photoFilename: webpDataUrl });
+            onUpdateStudent(studentByIdx.id, { photoFilename: webpDataUrl, pendingProfileUpdate: undefined });
             matchedCount++;
           }
         }
@@ -239,6 +239,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
       hobbies: editHobbies,
       email: editEmail,
       phone: editPhone,
+      pendingProfileUpdate: undefined
     });
     setEditingStudentId(null);
   };

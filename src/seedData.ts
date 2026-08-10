@@ -1,5 +1,3 @@
-import { db } from './firebase';
-import { writeBatch, doc } from 'firebase/firestore';
 import { seedStudentsToSupabase } from './lib/supabase';
 
 export interface StudentVotes {
@@ -792,75 +790,13 @@ export const getInitialStudents = (): Student[] => {
   return list;
 };
 
-export const seedStudentsToFirestore = async () => {
+export const seedDatabase = async () => {
   try {
-    const lines = rawCSV.trim().split('\n');
-    if (lines.length <= 1) return 0;
-
-    let batch = writeBatch(db);
-    let count = 0;
-    let batchCount = 0;
-
-    for (let i = 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      
-      const values = lines[i].split(',');
-      const examNumber = values[1]?.trim() || `4020204${i.toString().padStart(3, '0')}`;
-      const student = {
-        fullName: values[0]?.trim() || '',
-        examNumber,
-        photoFilename: (values[2]?.trim() || `${i}.webp`).replace(/\.(jpe?g|png)$/i, '.webp'),
-        birthDate: values[3]?.trim() || '',
-        votes: {
-          tech_guru: 0,
-          most_creative: 0,
-          class_scholar: 0,
-          most_famous: 0,
-          best_smile: 0,
-          next_ceo: 0,
-          style_icon: 0,
-          class_comedian: 0,
-          sports_mvp: 0,
-          quiet_achiever: 0,
-          world_traveler: 0,
-          unsung_hero: 0
-        },
-        quote: "Excellence is not a destination, it's a way of life. GSS Kubwa Class of 2026!",
-        createdAt: new Date()
-      };
-
-      const studentRef = doc(db, 'students', student.examNumber);
-      batch.set(studentRef, student);
-      
-      count++;
-      batchCount++;
-
-      // Commit at 400 to be safe
-      if (batchCount === 400) {
-        await batch.commit();
-        console.log(`Intermediate Batch of ${batchCount} committed...`);
-        batch = writeBatch(db);
-        batchCount = 0;
-      }
-    }
-
-    if (batchCount > 0) {
-      await batch.commit();
-    }
-
-    console.log(`Final Firestore batch committed. Total: ${count} students.`);
-    
-    // Seed Supabase in background
-    seedStudentsToSupabase(getInitialStudents()).catch(err => console.warn("Background Supabase seed notice:", err));
-
-    return count;
+    const students = getInitialStudents();
+    await seedStudentsToSupabase(students);
+    return students.length;
   } catch (error) {
-    console.warn("Firestore seed notice (falling back to Supabase and local dataset):", error);
-    try {
-      await seedStudentsToSupabase(getInitialStudents());
-    } catch (sErr) {
-      console.warn("Supabase seed notice:", sErr);
-    }
+    console.warn("Supabase seed notice:", error);
     return getInitialStudents().length;
   }
 };

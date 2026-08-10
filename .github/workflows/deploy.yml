@@ -23,25 +23,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run Type Check & Linter
+        run: npm run lint
+
       - name: Build project
         env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_URL || 'https://ibzfibfgywrprnmvzptn.supabase.co' }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY != '' && secrets.VITE_SUPABASE_ANON_KEY || 'sb_publishable_RXUCwg8zG2--VaDAqMQOCg__s6NdHr2' }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
-      - name: Deploy to Firebase Hosting
+      - name: Deploy Frontend to Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GSS_KUBWA_YEARBOOK }}
           channelId: live
           projectId: gss-kubwa-yearbook
-
-      - name: Deploy Firestore Rules
-        uses: w9jds/firebase-action@master
-        continue-on-error: true
-        with:
-          args: deploy --only firestore:rules
-        env:
-          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_GSS_KUBWA_YEARBOOK }}
-          PROJECT_ID: gss-kubwa-yearbook

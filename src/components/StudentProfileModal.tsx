@@ -54,6 +54,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [editPhone, setEditPhone] = useState(student.phone || '');
   const [editPhotoFilename, setEditPhotoFilename] = useState(student.photoFilename || '');
 
+  // Sync form state when student prop updates
+  React.useEffect(() => {
+    setEditQuote(student.quote || '');
+    setEditHobbies(student.hobbies || '');
+    setEditCareerPath(student.careerPath || '');
+    setEditEmail(student.email || '');
+    setEditPhone(student.phone || '');
+    setEditPhotoFilename(student.photoFilename || '');
+  }, [student]);
+
   const canEdit = userSession?.role === 'admin' || (userSession?.role === 'student' && userSession.id === student.id);
 
   const handleSaveEdit = () => {
@@ -115,15 +125,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   };
 
   const handleShare = () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}?student=${student.id}`;
     const shareText = `Check out ${student.fullName}'s profile on the GSS Kubwa Class of 2026 Digital Yearbook!`;
     if (navigator.share) {
       navigator.share({
         title: `${student.fullName} - GSS Kubwa 2026`,
         text: shareText,
-        url: window.location.href,
+        url: shareUrl,
       }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
     }

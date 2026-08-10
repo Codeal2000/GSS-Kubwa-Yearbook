@@ -1,9 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from './firebase';
-import { 
-  collection, onSnapshot, query, orderBy, doc, 
-  updateDoc, increment, setDoc, deleteDoc, addDoc, deleteField 
-} from 'firebase/firestore';
 import { 
   fetchStudentsFromSupabase, subscribeToStudentsFromSupabase,
   fetchCommentsFromSupabase, subscribeToCommentsFromSupabase,
@@ -12,7 +7,7 @@ import {
   deleteCommentFromSupabase, updateStudentInSupabase, addStudentToSupabase,
   deleteStudentFromSupabase, seedStudentsToSupabase
 } from './lib/supabase';
-import { getInitialStudents, seedStudentsToFirestore } from './seedData';
+import { getInitialStudents } from './seedData';
 import { Student, CommentItem, UserSession, SUPERLATIVES, getStudentPhotoUrl, handleStudentImageError, handleLogoImageError } from './types';
 import { getUserVotesMap, saveUserVotesMap, isWithin24Hours, getVotingConfig, isVotingActive, UserVotesMap } from './utils/votingSystem';
 import { Navbar } from './components/Navbar';
@@ -24,7 +19,6 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { Pagination } from './components/Pagination';
 import { SuperlativeIcon } from './components/SuperlativeIcon';
 import { StudentPortalBanner } from './components/StudentPortalBanner';
-import { MaintenanceBanner } from './components/MaintenanceBanner';
 import heroBanner from './assets/images/yearbook_hero_banner_1785861274504.jpg';
 import { 
   GraduationCap, Trophy, Users, Star, 
@@ -69,6 +63,37 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  // Sync URL search parameters when student selection changes
+  const handleSelectStudent = (student: Student | null) => {
+    setSelectedStudent(student);
+    try {
+      const url = new URL(window.location.href);
+      if (student) {
+        url.searchParams.set('student', student.id);
+      } else {
+        url.searchParams.delete('student');
+        url.searchParams.delete('studentId');
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // Ignore URL manipulation failures
+    }
+  };
+
+  // Check deep-link query param (?student=ID) on load / when students load
+  useEffect(() => {
+    if (students.length > 0 && !selectedStudent) {
+      const params = new URLSearchParams(window.location.search);
+      const targetId = params.get('student') || params.get('studentId') || (window.location.hash.startsWith('#student-') ? window.location.hash.replace('#student-', '') : null);
+      if (targetId) {
+        const match = students.find(s => s.id === targetId || s.examNumber === targetId);
+        if (match) {
+          setSelectedStudent(match);
+        }
+      }
+    }
+  }, [students]);
   
   // Navigation & Filtering
   const [activeTab, setActiveTab] = useState<'all' | 'featured' | 'birthdays' | 'halloffame'>('all');
@@ -215,64 +240,10 @@ export default function App() {
       }
     });
 
-    // Redundant Firestore fallback for seamless sync
-    let unsubscribeFirestoreStudents = () => {};
-    let unsubscribeFirestoreComments = () => {};
-    try {
-      const qStudents = query(collection(db, 'students'), orderBy('fullName'));
-      unsubscribeFirestoreStudents = onSnapshot(qStudents, (snapshot) => {
-        if (!snapshot.empty) {
-          const studentList: Student[] = snapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              fullName: data.fullName || '',
-              examNumber: data.examNumber || docSnap.id,
-              photoFilename: data.photoFilename || '',
-              birthDate: data.birthDate || '',
-              votes: data.votes || {},
-              quote: data.quote || "Excellence is not a destination, it's a way of life. GSS Kubwa Class of 2026!",
-              hobbies: data.hobbies || '',
-              careerPath: data.careerPath || '',
-              email: data.email || '',
-              phone: data.phone || '',
-              featuredOnHome: Boolean(data.featuredOnHome),
-              pendingProfileUpdate: data.pendingProfileUpdate || undefined
-            };
-          });
-          if (isMounted) setStudents(prev => prev.length === 0 ? applyStudentOverrides(studentList) : prev);
-        }
-      }, () => {});
-
-      const qComments = query(collection(db, 'comments'), orderBy('createdAt', 'desc'));
-      unsubscribeFirestoreComments = onSnapshot(qComments, (snapshot) => {
-        if (!snapshot.empty) {
-          const commentList: CommentItem[] = snapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            return {
-              id: docSnap.id,
-              studentId: data.studentId || '',
-              authorId: data.authorId || '',
-              authorName: data.authorName || 'Anonymous',
-              authorRole: data.authorRole || 'student',
-              text: data.text || '',
-              createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'Recently',
-              status: data.status || 'approved'
-            };
-          });
-          if (isMounted) setComments(prev => prev.length === 0 ? commentList : prev);
-        }
-      }, () => {});
-    } catch {
-      // Ignore if firestore is restricted
-    }
-
     return () => {
       isMounted = false;
       unsubscribeSupabaseStudents();
       unsubscribeSupabaseComments();
-      unsubscribeFirestoreStudents();
-      unsubscribeFirestoreComments();
     };
   }, []);
 
@@ -432,17 +403,6 @@ export default function App() {
         revokeVoteInSupabase(userSession.id, categoryId);
         updateStudentVotesInSupabase(studentId, categoryId, -1);
 
-        try {
-          const studentRef = doc(db, 'students', studentId);
-          await updateDoc(studentRef, {
-            [`votes.${categoryId}`]: increment(-1)
-          });
-          const voteDocId = `${userSession.id}_${categoryId}`;
-          await deleteDoc(doc(db, 'user_votes', voteDocId));
-        } catch (err) {
-          console.warn("Firestore vote revocation notice:", err);
-        }
-
         alert(`✅ Vote Revoked: Your vote for ${targetName} in this category has been canceled. You can now vote again whenever you wish!`);
         return;
       } else {
@@ -478,24 +438,6 @@ export default function App() {
         updateStudentVotesInSupabase(oldStudentId, categoryId, -1);
         updateStudentVotesInSupabase(studentId, categoryId, 1);
 
-        try {
-          await updateDoc(doc(db, 'students', oldStudentId), {
-            [`votes.${categoryId}`]: increment(-1)
-          });
-          await updateDoc(doc(db, 'students', studentId), {
-            [`votes.${categoryId}`]: increment(1)
-          });
-          const voteDocId = `${userSession.id}_${categoryId}`;
-          await setDoc(doc(db, 'user_votes', voteDocId), {
-            userId: userSession.id,
-            studentId,
-            categoryId,
-            timestamp: new Date().toISOString()
-          });
-        } catch (err) {
-          console.warn("Firestore vote change notice:", err);
-        }
-
         alert(`🎉 Vote Changed: Your vote in this category has been transferred to ${targetName}!`);
         return;
       }
@@ -518,23 +460,6 @@ export default function App() {
     // Core query to Supabase
     recordVoteInSupabase(userSession.id, studentId, categoryId, targetName);
     updateStudentVotesInSupabase(studentId, categoryId, 1);
-
-    try {
-      const studentRef = doc(db, 'students', studentId);
-      await updateDoc(studentRef, {
-        [`votes.${categoryId}`]: increment(1)
-      });
-
-      const voteDocId = `${userSession.id}_${categoryId}`;
-      await setDoc(doc(db, 'user_votes', voteDocId), {
-        userId: userSession.id,
-        studentId,
-        categoryId,
-        timestamp: new Date().toISOString()
-      });
-    } catch (err) {
-      console.warn("Firestore vote cast notice:", err);
-    }
 
     alert(`🎉 Vote Cast: You voted for ${targetName}! You can change or revoke this vote within 24 hours if you wish.`);
   };
@@ -570,20 +495,6 @@ export default function App() {
       text,
       status
     });
-
-    try {
-      await addDoc(collection(db, 'comments'), {
-        studentId,
-        authorId: userSession.id,
-        authorName: userSession.fullName,
-        authorRole: userSession.role,
-        text,
-        status,
-        createdAt: new Date().toISOString()
-      });
-    } catch (e) {
-      console.warn("Firestore comment notice:", e);
-    }
   };
 
   const handleApproveComment = async (commentId: string) => {
@@ -591,12 +502,6 @@ export default function App() {
     
     // Core query to Supabase
     approveCommentInSupabase(commentId);
-
-    try {
-      await updateDoc(doc(db, 'comments', commentId), { status: 'approved' });
-    } catch (e) {
-      console.warn("Firestore comment approval notice:", e);
-    }
   };
 
   const handleDeleteComment = async (commentId: string) => {
@@ -604,12 +509,6 @@ export default function App() {
 
     // Core query to Supabase
     deleteCommentFromSupabase(commentId);
-
-    try {
-      await deleteDoc(doc(db, 'comments', commentId));
-    } catch (e) {
-      console.warn("Firestore comment deletion notice:", e);
-    }
   };
 
   // Student Profile Updates
@@ -630,20 +529,6 @@ export default function App() {
 
     // Core query to Supabase
     updateStudentInSupabase(id, updatedData);
-
-    try {
-      const firestorePayload: Record<string, any> = {};
-      Object.entries(updatedData).forEach(([key, val]) => {
-        if (val === undefined) {
-          firestorePayload[key] = deleteField();
-        } else {
-          firestorePayload[key] = val;
-        }
-      });
-      await updateDoc(doc(db, 'students', id), firestorePayload);
-    } catch (e) {
-      console.warn("Firestore update notice:", e);
-    }
   };
 
   const handleAddStudent = async (newStudent: Partial<Student>) => {
@@ -667,12 +552,6 @@ export default function App() {
 
     // Core query to Supabase
     addStudentToSupabase(fullStudent);
-
-    try {
-      await setDoc(doc(db, 'students', id), fullStudent);
-    } catch (e) {
-      console.warn("Firestore create notice:", e);
-    }
   };
 
   const handleDeleteStudent = async (id: string) => {
@@ -681,12 +560,6 @@ export default function App() {
 
     // Core query to Supabase
     deleteStudentFromSupabase(id);
-
-    try {
-      await deleteDoc(doc(db, 'students', id));
-    } catch (e) {
-      console.warn("Firestore delete notice:", e);
-    }
   };
 
   const handleToggleFeatured = async (id: string, featured: boolean) => {
@@ -709,9 +582,6 @@ export default function App() {
         totalStudents={students.length}
         pendingApprovalsCount={pendingApprovalsCount}
       />
-
-      {/* Prominent Maintenance & Database Migration Banner */}
-      <MaintenanceBanner onAdminLoginClick={() => setIsAuthOpen(true)} />
 
       {/* Hero / Spotlight Section on First View */}
       {activeTab === 'all' && !searchTerm && (
@@ -853,7 +723,7 @@ export default function App() {
                     <SpotlightCard
                       student={spotlightStudents[spotlightIndex]}
                       totalVotes={getTotalStudentVotes(spotlightStudents[spotlightIndex])}
-                      onSelect={setSelectedStudent}
+                      onSelect={handleSelectStudent}
                     />
                   )}
                 </div>
@@ -912,7 +782,7 @@ export default function App() {
           return (
             <StudentPortalBanner
               student={loggedInStudent}
-              onEditProfile={() => setSelectedStudent(loggedInStudent)}
+              onEditProfile={() => handleSelectStudent(loggedInStudent)}
               onSelectCategoryVote={(catId) => {
                 handleTabChange('halloffame');
                 setSelectedCategory(catId);
@@ -1006,7 +876,7 @@ export default function App() {
                         <SpotlightCard
                           student={student}
                           totalVotes={totalVotes}
-                          onSelect={setSelectedStudent}
+                          onSelect={handleSelectStudent}
                           isCompact={activeTab !== 'featured'}
                         />
                       ) : (
@@ -1014,7 +884,7 @@ export default function App() {
                           student={student}
                           totalVotes={totalVotes}
                           rank={globalRank}
-                          onSelect={setSelectedStudent}
+                          onSelect={handleSelectStudent}
                         />
                       )}
                     </motion.div>
@@ -1117,7 +987,7 @@ export default function App() {
             userSession={userSession}
             comments={comments.filter(c => c.studentId === selectedStudent.id)}
             userVotesMap={userVoteRecords}
-            onClose={() => setSelectedStudent(null)}
+            onClose={() => handleSelectStudent(null)}
             onVote={(catId) => handleVote(selectedStudent.id, catId)}
             onAddComment={(text) => handleAddComment(selectedStudent.id, text)}
             onDeleteComment={handleDeleteComment}
