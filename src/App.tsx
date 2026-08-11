@@ -165,8 +165,15 @@ export default function App() {
     const overrides = getLocalStudentOverrides();
     if (!overrides || Object.keys(overrides).length === 0) return rawStudents;
     return rawStudents.map(s => {
-      if (overrides[s.id]) {
-        return { ...s, ...overrides[s.id] };
+      const override = overrides[s.id] || overrides[s.examNumber];
+      if (override) {
+        // Always prioritize real-time database pendingProfileUpdate so admin moderation queue is preserved
+        const pending = s.pendingProfileUpdate || override.pendingProfileUpdate;
+        return {
+          ...s,
+          ...override,
+          pendingProfileUpdate: pending
+        };
       }
       return s;
     });
@@ -513,8 +520,8 @@ export default function App() {
 
   // Student Profile Updates
   const handleUpdateStudent = async (id: string, updatedData: Partial<Student>) => {
-    setStudents(prev => prev.map(s => s.id === id ? { ...s, ...updatedData } : s));
-    if (selectedStudent && selectedStudent.id === id) {
+    setStudents(prev => prev.map(s => (s.id === id || s.examNumber === id) ? { ...s, ...updatedData } : s));
+    if (selectedStudent && (selectedStudent.id === id || selectedStudent.examNumber === id)) {
       setSelectedStudent(prev => prev ? { ...prev, ...updatedData } : null);
     }
 
@@ -528,7 +535,7 @@ export default function App() {
     }
 
     // Core query to Supabase
-    updateStudentInSupabase(id, updatedData);
+    await updateStudentInSupabase(id, updatedData);
   };
 
   const handleAddStudent = async (newStudent: Partial<Student>) => {

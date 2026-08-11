@@ -424,14 +424,20 @@ export async function updateStudentInSupabase(id: string, updatedData: Partial<S
       payload.pending_profile_update = updatedData.pendingProfileUpdate || null;
     }
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('students')
       .update(payload)
-      .or(`id.eq.${id},exam_number.eq.${id}`);
+      .eq('id', id);
 
     if (error) {
-      console.warn('Supabase update student notice:', error.message);
-      return false;
+      const { error: err2 } = await supabase
+        .from('students')
+        .update(payload)
+        .eq('exam_number', id);
+      if (err2) {
+        console.warn('Supabase update student notice:', err2.message);
+        return false;
+      }
     }
     return true;
   } catch (err) {

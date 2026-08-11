@@ -150,6 +150,11 @@ export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement
   }
 
   if (!tried) {
+    if (currentSrc.endsWith('.webp') && !currentSrc.includes('-1.webp')) {
+      target.dataset.fallbackTried = 'dash1';
+      target.src = currentSrc.replace(/\.webp$/i, '-1.webp');
+      return;
+    }
     if (currentSrc.endsWith('.webp')) {
       target.dataset.fallbackTried = 'jpg';
       target.src = currentSrc.replace(/\.webp$/i, '.jpg');
@@ -160,6 +165,10 @@ export function handleStudentImageError(e: React.SyntheticEvent<HTMLImageElement
       target.src = currentSrc.replace(/\.(jpg|jpeg)$/i, '.png');
       return;
     }
+  } else if (tried === 'dash1') {
+    target.dataset.fallbackTried = 'jpg';
+    target.src = currentSrc.replace(/-1\.webp$/i, '.jpg');
+    return;
   } else if (tried === 'jpg') {
     target.dataset.fallbackTried = 'png';
     target.src = currentSrc.replace(/\.jpg$/i, '.png');
