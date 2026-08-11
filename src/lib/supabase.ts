@@ -198,10 +198,14 @@ export async function fetchUserVotesFromSupabase(userId: string): Promise<UserVo
     const { data, error } = await supabase
       .from('user_votes')
       .select('*')
-      .or(`user_id.eq.${userId},userId.eq.${userId}`);
+      .eq('user_id', userId);
 
     if (error) {
-      console.warn('Supabase fetch user_votes notice:', error.message);
+      if (error.code === 'PGRST301' || error.message?.includes('schema cache')) {
+        console.warn('Supabase notice: Table "public.user_votes" does not exist in database schema yet. Please run supabase_schema.sql in Supabase SQL Editor.');
+      } else {
+        console.warn('Supabase fetch user_votes notice:', error.message);
+      }
       return null;
     }
 
@@ -529,10 +533,18 @@ export async function seedStudentsToSupabase(students: Student[]): Promise<numbe
         .upsert(chunk, { onConflict: 'id' });
 
       if (error) {
-        console.warn(`Supabase seed chunk error at ${i}:`, error.message);
+        if (error.message?.includes('row-level security policy') || error.code === '42501') {
+          console.warn('Supabase RLS notice: Student seeding skipped. Please run supabase_schema.sql in your Supabase SQL Editor to enable public INSERT/UPDATE RLS policies.');
+          break;
+        } else {
+          console.warn(`Supabase seed chunk error at ${i}:`, error.message);
+        }
       } else {
         seeded += chunk.length;
       }
+    }
+    if (seeded > 0) {
+      console.log(`✅ Successfully seeded ${seeded} students to Supabase database!`);
     }
     return seeded;
   } catch (err) {
