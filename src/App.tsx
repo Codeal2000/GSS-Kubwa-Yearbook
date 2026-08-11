@@ -191,7 +191,7 @@ export default function App() {
     localStorage.setItem('gss_kubwa_local_votes', JSON.stringify(localVotes));
   }, [localVotes]);
 
-  // Load students & comments from Supabase (with Firestore/local fallback)
+  // Load students & comments from Supabase
   useEffect(() => {
     let isMounted = true;
 
