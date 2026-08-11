@@ -1,4 +1,4 @@
--- GSS KUBWA CLASS OF 2026 YEARBOOK - PRODUCTION SUPABASE SCHEMA & MIGRATION
+-- GSS KUBWA CLASS OF 2026 YEARBOOK - PRODUCTION SUPABASE MIGRATION 001
 
 -- 1. STUDENTS TABLE
 CREATE TABLE IF NOT EXISTS public.students (
@@ -18,7 +18,6 @@ CREATE TABLE IF NOT EXISTS public.students (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Ensure columns exist if table was already created earlier
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS full_name TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS exam_number TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS photo_filename TEXT;
@@ -45,14 +44,6 @@ CREATE TABLE IF NOT EXISTS public.comments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS student_id TEXT;
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS author_id TEXT;
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS author_name TEXT;
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS author_role TEXT DEFAULT 'student';
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS text TEXT;
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending';
-ALTER TABLE public.comments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
-
 -- 3. USER VOTES TABLE
 CREATE TABLE IF NOT EXISTS public.user_votes (
   id TEXT PRIMARY KEY,
@@ -63,13 +54,7 @@ CREATE TABLE IF NOT EXISTS public.user_votes (
   timestamp TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE public.user_votes ADD COLUMN IF NOT EXISTS user_id TEXT;
-ALTER TABLE public.user_votes ADD COLUMN IF NOT EXISTS student_id TEXT;
-ALTER TABLE public.user_votes ADD COLUMN IF NOT EXISTS category_id TEXT;
-ALTER TABLE public.user_votes ADD COLUMN IF NOT EXISTS student_name TEXT;
-ALTER TABLE public.user_votes ADD COLUMN IF NOT EXISTS timestamp TIMESTAMPTZ DEFAULT NOW();
-
--- INDEXES FOR MAXIMUM QUERY PERFORMANCE
+-- INDEXES
 CREATE INDEX IF NOT EXISTS idx_students_pending_profile_update ON public.students USING GIN (pending_profile_update);
 CREATE INDEX IF NOT EXISTS idx_students_exam_number ON public.students (exam_number);
 CREATE INDEX IF NOT EXISTS idx_comments_status ON public.comments (status);
@@ -78,12 +63,11 @@ CREATE INDEX IF NOT EXISTS idx_comments_author_id ON public.comments (author_id)
 CREATE INDEX IF NOT EXISTS idx_user_votes_user_id ON public.user_votes (user_id);
 CREATE INDEX IF NOT EXISTS idx_user_votes_category_id ON public.user_votes (category_id);
 
--- ENABLE ROW LEVEL SECURITY
+-- RLS
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_votes ENABLE ROW LEVEL SECURITY;
 
--- POLICIES FOR STUDENTS
 DROP POLICY IF EXISTS "Public read students" ON public.students;
 CREATE POLICY "Public read students" ON public.students FOR SELECT USING (true);
 
@@ -96,7 +80,6 @@ CREATE POLICY "Allow insert student" ON public.students FOR INSERT WITH CHECK (t
 DROP POLICY IF EXISTS "Allow delete student" ON public.students;
 CREATE POLICY "Allow delete student" ON public.students FOR DELETE USING (true);
 
--- POLICIES FOR COMMENTS
 DROP POLICY IF EXISTS "Public read comments" ON public.comments;
 CREATE POLICY "Public read comments" ON public.comments FOR SELECT USING (true);
 
@@ -109,7 +92,6 @@ CREATE POLICY "Moderate comments" ON public.comments FOR UPDATE USING (true);
 DROP POLICY IF EXISTS "Delete comments" ON public.comments;
 CREATE POLICY "Delete comments" ON public.comments FOR DELETE USING (true);
 
--- POLICIES FOR USER_VOTES
 DROP POLICY IF EXISTS "Public read votes" ON public.user_votes;
 CREATE POLICY "Public read votes" ON public.user_votes FOR SELECT USING (true);
 
@@ -119,24 +101,7 @@ CREATE POLICY "Insert votes" ON public.user_votes FOR INSERT WITH CHECK (true);
 DROP POLICY IF EXISTS "Delete votes" ON public.user_votes;
 CREATE POLICY "Delete votes" ON public.user_votes FOR DELETE USING (true);
 
--- ATOMIC POSTGRES RPC FUNCTION FOR VOTING
-CREATE OR REPLACE FUNCTION public.vote_for_student(
-  p_student_id TEXT,
-  p_category_id TEXT,
-  p_delta INT
-) RETURNS VOID AS $$
-BEGIN
-  UPDATE public.students
-  SET votes = jsonb_set(
-    COALESCE(votes, '{}'::jsonb),
-    ARRAY[p_category_id],
-    to_jsonb(GREATEST(0, COALESCE((votes->>p_category_id)::int, 0) + p_delta))
-  )
-  WHERE id = p_student_id OR exam_number = p_student_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- REALTIME PUBLICATION SETUP
+-- REALTIME
 DO $$
 BEGIN
   IF NOT EXISTS (
