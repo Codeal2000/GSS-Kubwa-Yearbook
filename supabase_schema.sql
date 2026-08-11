@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.students (
   phone TEXT,
   featured_on_home BOOLEAN DEFAULT false,
   pending_profile_update JSONB DEFAULT NULL,
+  public_share_slug TEXT UNIQUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -31,7 +32,15 @@ ALTER TABLE public.students ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS phone TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS featured_on_home BOOLEAN DEFAULT false;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS pending_profile_update JSONB DEFAULT NULL;
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS public_share_slug TEXT;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+
+-- Populate public_share_slug if null
+UPDATE public.students
+SET public_share_slug = lower(regexp_replace(full_name, '[^a-zA-Z0-9]+', '-', 'g')) 
+  || '-' 
+  || lower(substr(md5(id || full_name || clock_timestamp()::text || random()::text), 1, 4))
+WHERE public_share_slug IS NULL OR public_share_slug = '';
 
 -- 2. COMMENTS TABLE
 CREATE TABLE IF NOT EXISTS public.comments (

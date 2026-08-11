@@ -1,4 +1,5 @@
 import { seedStudentsToSupabase } from './lib/supabase';
+import { generatePublicShareSlug } from './utils/slugUtils';
 
 export interface StudentVotes {
   tech_guru?: number;
@@ -20,6 +21,7 @@ export interface Student {
   id: string;
   fullName: string;
   examNumber: string;
+  publicShareSlug?: string;
   photoFilename: string;
   birthDate: string;
   votes: StudentVotes;
@@ -767,6 +769,7 @@ export const getInitialStudents = (): Student[] => {
         id: examNumber,
         fullName,
         examNumber,
+        publicShareSlug: generatePublicShareSlug(fullName, examNumber),
         photoFilename: (photoFilename || `${i}.webp`).replace(/\.(jpe?g|png)$/i, '.webp'),
         birthDate: birthDate || '1 January',
         votes: {

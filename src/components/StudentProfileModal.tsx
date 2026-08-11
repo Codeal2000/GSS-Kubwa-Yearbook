@@ -7,6 +7,7 @@ import {
 import { Student, SUPERLATIVES, UserSession, CommentItem, getStudentPhotoUrl, handleStudentImageError } from '../types';
 import { SuperlativeIcon } from './SuperlativeIcon';
 import { convertFileToWebp, ensureWebpFilename } from '../utils/imageUtils';
+import { generatePublicShareSlug } from '../utils/slugUtils';
 import { uploadStudentPhotoToStorage } from '../lib/supabase';
 import { UserVotesMap, isWithin24Hours, getHoursRemainingIn24hWindow, getVotingConfig, isVotingActive } from '../utils/votingSystem';
 
@@ -125,7 +126,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   };
 
   const handleShare = () => {
-    const shareUrl = `${window.location.origin}${window.location.pathname}?student=${student.id}`;
+    const slug = student.publicShareSlug || generatePublicShareSlug(student.fullName, student.id);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?student=${slug}`;
     const shareText = `Check out ${student.fullName}'s profile on the GSS Kubwa Class of 2026 Digital Yearbook!`;
     if (navigator.share) {
       navigator.share({

@@ -70,7 +70,7 @@ export default function App() {
     try {
       const url = new URL(window.location.href);
       if (student) {
-        url.searchParams.set('student', student.id);
+        url.searchParams.set('student', student.publicShareSlug || student.id);
       } else {
         url.searchParams.delete('student');
         url.searchParams.delete('studentId');
@@ -81,13 +81,13 @@ export default function App() {
     }
   };
 
-  // Check deep-link query param (?student=ID) on load / when students load
+  // Check deep-link query param (?student=SLUG) on load / when students load
   useEffect(() => {
     if (students.length > 0 && !selectedStudent) {
       const params = new URLSearchParams(window.location.search);
       const targetId = params.get('student') || params.get('studentId') || (window.location.hash.startsWith('#student-') ? window.location.hash.replace('#student-', '') : null);
       if (targetId) {
-        const match = students.find(s => s.id === targetId || s.examNumber === targetId);
+        const match = students.find(s => (s.publicShareSlug && s.publicShareSlug === targetId) || s.id === targetId || s.examNumber === targetId);
         if (match) {
           setSelectedStudent(match);
         }

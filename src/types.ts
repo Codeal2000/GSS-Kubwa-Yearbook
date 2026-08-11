@@ -42,6 +42,7 @@ export interface Student {
   id: string;
   fullName: string;
   examNumber: string;
+  publicShareSlug?: string;
   photoFilename: string;
   birthDate: string;
   votes: StudentVotes;

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Student, CommentItem } from '../types';
+import { generatePublicShareSlug } from '../utils/slugUtils';
 import { UserVotesMap } from '../utils/votingSystem';
 
 let rawSupabaseUrl = (import.meta.env.VITE_SUPABASE_URL || 'https://ibzfibfgywrprnmvzptn.supabase.co').trim();
@@ -60,10 +61,15 @@ export async function uploadStudentPhotoToStorage(file: File, fallbackWebpDataUr
 
 // Data Normalization Helpers
 export function normalizeStudentRow(row: any): Student {
+  const fullName = row.fullName || row.full_name || '';
+  const id = String(row.id || row.examNumber || row.exam_number || '');
+  const slug = row.publicShareSlug || row.public_share_slug || generatePublicShareSlug(fullName, id);
+
   return {
-    id: String(row.id || row.examNumber || row.exam_number || ''),
-    fullName: row.fullName || row.full_name || '',
-    examNumber: row.examNumber || row.exam_number || String(row.id || ''),
+    id,
+    fullName,
+    examNumber: row.examNumber || row.exam_number || id,
+    publicShareSlug: slug,
     photoFilename: row.photoFilename || row.photo_filename || '',
     birthDate: row.birthDate || row.birth_date || '',
     votes: typeof row.votes === 'object' && row.votes !== null ? row.votes : {},
@@ -457,6 +463,7 @@ export async function addStudentToSupabase(student: Student): Promise<boolean> {
       id: student.id,
       full_name: student.fullName,
       exam_number: student.examNumber,
+      public_share_slug: student.publicShareSlug || generatePublicShareSlug(student.fullName, student.id),
       photo_filename: student.photoFilename,
       birth_date: student.birthDate,
       votes: student.votes || {},
@@ -511,6 +518,7 @@ export async function seedStudentsToSupabase(students: Student[]): Promise<numbe
       id: s.id,
       full_name: s.fullName,
       exam_number: s.examNumber,
+      public_share_slug: s.publicShareSlug || generatePublicShareSlug(s.fullName, s.id),
       photo_filename: s.photoFilename,
       birth_date: s.birthDate,
       votes: s.votes || {},
