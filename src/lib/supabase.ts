@@ -240,13 +240,9 @@ export async function recordVoteInSupabase(
     const payload = {
       id,
       user_id: userId,
-      userId: userId,
       student_id: studentId,
-      studentId: studentId,
       category_id: categoryId,
-      categoryId: categoryId,
       student_name: studentName,
-      studentName: studentName,
       timestamp
     };
 
@@ -307,7 +303,7 @@ export async function updateStudentVotesInSupabase(
     const { data, error } = await supabase
       .from('students')
       .select('votes')
-      .or(`id.eq.${studentId},exam_number.eq.${studentId},examNumber.eq.${studentId}`)
+      .or(`id.eq.${studentId},exam_number.eq.${studentId}`)
       .single();
 
     if (error || !data) {
@@ -322,7 +318,7 @@ export async function updateStudentVotesInSupabase(
     const { error: updateError } = await supabase
       .from('students')
       .update({ votes })
-      .or(`id.eq.${studentId},exam_number.eq.${studentId},examNumber.eq.${studentId}`);
+      .or(`id.eq.${studentId},exam_number.eq.${studentId}`);
 
     if (updateError) {
       console.warn('Supabase update student votes error:', updateError.message);
@@ -348,17 +344,12 @@ export async function addCommentToSupabase(comment: {
     const payload = {
       id: `comm_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       student_id: comment.studentId,
-      studentId: comment.studentId,
       author_id: comment.authorId,
-      authorId: comment.authorId,
       author_name: comment.authorName,
-      authorName: comment.authorName,
       author_role: comment.authorRole,
-      authorRole: comment.authorRole,
       text: comment.text,
       status: comment.status,
-      created_at: new Date().toISOString(),
-      createdAt: new Date().toISOString()
+      created_at: new Date().toISOString()
     };
 
     const { error } = await supabase
@@ -419,40 +410,24 @@ export async function updateStudentInSupabase(id: string, updatedData: Partial<S
   try {
     const payload: Record<string, any> = {};
     
-    if (updatedData.fullName !== undefined) {
-      payload.fullName = updatedData.fullName;
-      payload.full_name = updatedData.fullName;
-    }
-    if (updatedData.photoFilename !== undefined) {
-      payload.photoFilename = updatedData.photoFilename;
-      payload.photo_filename = updatedData.photoFilename;
-    }
-    if (updatedData.birthDate !== undefined) {
-      payload.birthDate = updatedData.birthDate;
-      payload.birth_date = updatedData.birthDate;
-    }
+    if (updatedData.fullName !== undefined) payload.full_name = updatedData.fullName;
+    if (updatedData.photoFilename !== undefined) payload.photo_filename = updatedData.photoFilename;
+    if (updatedData.birthDate !== undefined) payload.birth_date = updatedData.birthDate;
     if (updatedData.quote !== undefined) payload.quote = updatedData.quote;
     if (updatedData.hobbies !== undefined) payload.hobbies = updatedData.hobbies;
-    if (updatedData.careerPath !== undefined) {
-      payload.careerPath = updatedData.careerPath;
-      payload.career_path = updatedData.careerPath;
-    }
+    if (updatedData.careerPath !== undefined) payload.career_path = updatedData.careerPath;
     if (updatedData.email !== undefined) payload.email = updatedData.email;
     if (updatedData.phone !== undefined) payload.phone = updatedData.phone;
     if (updatedData.votes !== undefined) payload.votes = updatedData.votes;
-    if (updatedData.featuredOnHome !== undefined) {
-      payload.featuredOnHome = updatedData.featuredOnHome;
-      payload.featured_on_home = updatedData.featuredOnHome;
-    }
+    if (updatedData.featuredOnHome !== undefined) payload.featured_on_home = updatedData.featuredOnHome;
     if ('pendingProfileUpdate' in updatedData) {
-      payload.pendingProfileUpdate = updatedData.pendingProfileUpdate || null;
       payload.pending_profile_update = updatedData.pendingProfileUpdate || null;
     }
 
     const { error } = await supabase
       .from('students')
       .update(payload)
-      .or(`id.eq.${id},exam_number.eq.${id},examNumber.eq.${id}`);
+      .or(`id.eq.${id},exam_number.eq.${id}`);
 
     if (error) {
       console.warn('Supabase update student notice:', error.message);
@@ -470,23 +445,18 @@ export async function addStudentToSupabase(student: Student): Promise<boolean> {
   try {
     const payload = {
       id: student.id,
-      fullName: student.fullName,
       full_name: student.fullName,
-      examNumber: student.examNumber,
       exam_number: student.examNumber,
-      photoFilename: student.photoFilename,
       photo_filename: student.photoFilename,
-      birthDate: student.birthDate,
       birth_date: student.birthDate,
       votes: student.votes || {},
       quote: student.quote || '',
       hobbies: student.hobbies || '',
-      careerPath: student.careerPath || '',
       career_path: student.careerPath || '',
       email: student.email || '',
       phone: student.phone || '',
-      featuredOnHome: Boolean(student.featuredOnHome),
       featured_on_home: Boolean(student.featuredOnHome),
+      pending_profile_update: student.pendingProfileUpdate || null,
       created_at: new Date().toISOString()
     };
 
@@ -511,7 +481,7 @@ export async function deleteStudentFromSupabase(id: string): Promise<boolean> {
     const { error } = await supabase
       .from('students')
       .delete()
-      .or(`id.eq.${id},exam_number.eq.${id},examNumber.eq.${id}`);
+      .or(`id.eq.${id},exam_number.eq.${id}`);
 
     if (error) {
       console.warn('Supabase delete student notice:', error.message);
@@ -529,22 +499,16 @@ export async function seedStudentsToSupabase(students: Student[]): Promise<numbe
   try {
     const records = students.map(s => ({
       id: s.id,
-      fullName: s.fullName,
       full_name: s.fullName,
-      examNumber: s.examNumber,
       exam_number: s.examNumber,
-      photoFilename: s.photoFilename,
       photo_filename: s.photoFilename,
-      birthDate: s.birthDate,
       birth_date: s.birthDate,
       votes: s.votes || {},
       quote: s.quote || "Excellence is not a destination, it's a way of life.",
       hobbies: s.hobbies || '',
-      careerPath: s.careerPath || '',
       career_path: s.careerPath || '',
       email: s.email || '',
       phone: s.phone || '',
-      featuredOnHome: Boolean(s.featuredOnHome),
       featured_on_home: Boolean(s.featuredOnHome),
       created_at: new Date().toISOString()
     }));
