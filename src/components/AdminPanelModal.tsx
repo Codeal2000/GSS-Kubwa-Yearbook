@@ -248,12 +248,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     if (!student.pendingProfileUpdate) return;
     const updates = student.pendingProfileUpdate;
     onUpdateStudent(student.id, {
-      quote: updates.quote !== undefined ? updates.quote : student.quote,
-      hobbies: updates.hobbies !== undefined ? updates.hobbies : student.hobbies,
-      careerPath: updates.careerPath !== undefined ? updates.careerPath : student.careerPath,
-      photoFilename: updates.photoFilename !== undefined ? updates.photoFilename : student.photoFilename,
-      email: updates.email !== undefined ? updates.email : student.email,
-      phone: updates.phone !== undefined ? updates.phone : student.phone,
+      photoFilename: updates.photoFilename || student.photoFilename,
       pendingProfileUpdate: undefined
     });
   };

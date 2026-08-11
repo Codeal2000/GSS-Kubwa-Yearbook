@@ -268,12 +268,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   onClick={() => {
                     if (student.pendingProfileUpdate) {
                       onUpdateProfile({
-                        quote: student.pendingProfileUpdate.quote || student.quote,
-                        hobbies: student.pendingProfileUpdate.hobbies || student.hobbies,
-                        careerPath: student.pendingProfileUpdate.careerPath || student.careerPath,
                         photoFilename: student.pendingProfileUpdate.photoFilename || student.photoFilename,
-                        email: student.pendingProfileUpdate.email || student.email,
-                        phone: student.pendingProfileUpdate.phone || student.phone,
                         pendingProfileUpdate: undefined
                       });
                       setUpdateFeedback('Photo update approved successfully!');

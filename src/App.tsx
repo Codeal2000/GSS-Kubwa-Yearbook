@@ -151,53 +151,6 @@ export default function App() {
   // Student Portal Classmates Visibility Toggle
   const [showClassmates, setShowClassmates] = useState(false);
 
-  // Student Local Storage Persistent Overrides (Guarantees zero data loss across AI Studio restarts/commits)
-  const getLocalStudentOverrides = (): Record<string, Partial<Student>> => {
-    try {
-      const saved = localStorage.getItem('gss_kubwa_student_overrides');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  };
-
-  const applyStudentOverrides = (rawStudents: Student[]): Student[] => {
-    const overrides = getLocalStudentOverrides();
-    if (!overrides || Object.keys(overrides).length === 0) return rawStudents;
-    return rawStudents.map(s => {
-      const override = overrides[s.id] || overrides[s.examNumber];
-      if (override) {
-        // Always prioritize real-time database pendingProfileUpdate so admin moderation queue is preserved
-        const pending = s.pendingProfileUpdate || override.pendingProfileUpdate;
-        return {
-          ...s,
-          ...override,
-          pendingProfileUpdate: pending
-        };
-      }
-      return s;
-    });
-  };
-
-  // Save session & votes
-  useEffect(() => {
-    if (userSession) {
-      localStorage.setItem('gss_kubwa_user_session', JSON.stringify(userSession));
-    } else {
-      localStorage.removeItem('gss_kubwa_user_session');
-    }
-  }, [userSession]);
-
-  useEffect(() => {
-    if (userSession) {
-      saveUserVotesMap(userSession.id, userVoteRecords);
-    }
-  }, [userVoteRecords, userSession]);
-
-  useEffect(() => {
-    localStorage.setItem('gss_kubwa_local_votes', JSON.stringify(localVotes));
-  }, [localVotes]);
-
   // Load students & comments from Supabase
   useEffect(() => {
     let isMounted = true;
@@ -207,18 +160,18 @@ export default function App() {
       const supabaseStudents = await fetchStudentsFromSupabase();
       if (isMounted) {
         if (supabaseStudents && supabaseStudents.length > 0) {
-          setStudents(applyStudentOverrides(supabaseStudents));
+          setStudents(supabaseStudents);
           setLoading(false);
         } else if (supabaseStudents && supabaseStudents.length === 0) {
           // Supabase table is empty, seed initial 714 graduates
           const initial = getInitialStudents();
-          setStudents(applyStudentOverrides(initial));
+          setStudents(initial);
           setLoading(false);
           seedStudentsToSupabase(initial).catch(err => console.warn("Supabase background seed notice:", err));
         } else {
           // Supabase offline or initializing, load initial local dataset
           const initial = getInitialStudents();
-          setStudents(applyStudentOverrides(initial));
+          setStudents(initial);
           setLoading(false);
         }
       }
@@ -236,7 +189,7 @@ export default function App() {
     const unsubscribeSupabaseStudents = subscribeToStudentsFromSupabase(async () => {
       const updated = await fetchStudentsFromSupabase();
       if (isMounted && updated && updated.length > 0) {
-        setStudents(applyStudentOverrides(updated));
+        setStudents(updated);
       }
     });
 
@@ -520,22 +473,17 @@ export default function App() {
 
   // Student Profile Updates
   const handleUpdateStudent = async (id: string, updatedData: Partial<Student>) => {
+    // Core query to Supabase first
+    const success = await updateStudentInSupabase(id, updatedData);
+    if (!success) {
+      alert("❌ Supabase update failed. Please check your network connection.");
+      return;
+    }
+
     setStudents(prev => prev.map(s => (s.id === id || s.examNumber === id) ? { ...s, ...updatedData } : s));
     if (selectedStudent && (selectedStudent.id === id || selectedStudent.examNumber === id)) {
       setSelectedStudent(prev => prev ? { ...prev, ...updatedData } : null);
     }
-
-    // Save persistent local overrides cache to prevent data loss on commits/reloads
-    try {
-      const overrides = getLocalStudentOverrides();
-      overrides[id] = { ...(overrides[id] || {}), ...updatedData };
-      localStorage.setItem('gss_kubwa_student_overrides', JSON.stringify(overrides));
-    } catch (err) {
-      console.warn("LocalStorage student override save failed:", err);
-    }
-
-    // Core query to Supabase
-    await updateStudentInSupabase(id, updatedData);
   };
 
   const handleAddStudent = async (newStudent: Partial<Student>) => {
@@ -555,18 +503,24 @@ export default function App() {
       featuredOnHome: false,
     };
 
-    setStudents(prev => [fullStudent, ...prev]);
+    const success = await addStudentToSupabase(fullStudent);
+    if (!success) {
+      alert("❌ Failed to add student to Supabase database.");
+      return;
+    }
 
-    // Core query to Supabase
-    addStudentToSupabase(fullStudent);
+    setStudents(prev => [fullStudent, ...prev]);
   };
 
   const handleDeleteStudent = async (id: string) => {
+    const success = await deleteStudentFromSupabase(id);
+    if (!success) {
+      alert("❌ Failed to delete student from Supabase database.");
+      return;
+    }
+
     setStudents(prev => prev.filter(s => s.id !== id));
     if (selectedStudent?.id === id) setSelectedStudent(null);
-
-    // Core query to Supabase
-    deleteStudentFromSupabase(id);
   };
 
   const handleToggleFeatured = async (id: string, featured: boolean) => {
